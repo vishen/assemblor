@@ -27,10 +27,12 @@ func (b *binOutput) write32(v uint32) {
 	b.write(tmpBuf[:4]...)
 }
 
-func (b *binOutput) write64(v uint64) {
-	tmpBuf := make([]byte, 8)
-	binary.LittleEndian.PutUint64(tmpBuf, v)
-	b.write(tmpBuf[:8]...)
+func (b *binOutput) write64(vs ...uint64) {
+	for _, v := range vs {
+		tmpBuf := make([]byte, 8)
+		binary.LittleEndian.PutUint64(tmpBuf, v)
+		b.write(tmpBuf[:8]...)
+	}
 }
 
 func (b *binOutput) writeString(s string, padding int) {
@@ -82,136 +84,50 @@ const (
 	S_ATTR_PURE_INSTRUCTIONS = 0x80000000
 	S_ATTR_SOME_INSTRUCTIONS = 0x00000400
 
+	LC_UNIXTHREAD = 0x5
 	LC_SEGMENT_64 = 0x19
 )
 
 func MachoWrite(code []byte) {
 	// TODO: Will need to do __DATA
 
-	// Number of segments
-	segs := 0
-
-	// Number of sections
-	sects := 0
-
-	/*
-		___pagezerostart:
-		   dd 0x19         ; LC_SEGMENT_64
-		   dd ___pagezeroend - ___pagezerostart    ; command size
-		   db '__PAGEZERO',0,0,0,0,0,0 ; segment name (pad to 16 bytes)
-		   dq 0            ; VM address
-		   dq 0x100000000  ; VM size
-		   dq 0            ; file offset
-		   dq 0            ; file size
-		   dd 0x0          ; VM_PROT_NONE (maximum protection)
-		   dd 0x0          ; VM_PROT_NONE (inital protection)
-		   dd 0            ; number of sections
-		   dd 0x0          ; flags
-		   align 8, db 0   ; pad with zero to 8-byte boundary
-		___pagezeroend:
-	*/
+	origin := uint64(0x100000000)
+	// TODO: Remove hardcoded
+	codestart := uint64(0x168)
+	loadsize := 328
+	nsegs := 3
 
 	// __PAGEZERO segment is used for null pointer deferences
 	s1 := &MachoSeg{
 		name:  "__PAGEZERO",
-		vsize: 0x100000000,
+		vsize: origin,
 	}
-	segs++
-
-	/*
-		___TEXTstart:
-			dd 0x19         ; LC_SEGMENT_64
-			dd ___TEXTend - ___TEXTstart    ; command size
-			db '__TEXT',0,0,0,0,0,0,0,0,0,0 ; segment name (pad to 16 bytes)
-			dq 0x100000000  ; VM address
-			dq 0x1000       ; VM size
-			dq 0            ; file offset
-			dq 0x1000       ; file size
-			dd 0x7          ; VM_PROT_READ | VM_PROT_WRITE | VM_PROT_EXECUTE
-			dd 0x5          ; VM_PROT_READ | VM_PROT_EXECUTE
-			dd 6            ; number of sections
-			dd 0x0          ; flags
-
-			SIZE:
-			dd * 6
-			dq * 4
-			16 * 1
-			= 72
-		___TEXTtextstart:
-			db '__text',0,0,0,0,0,0,0,0,0,0 ; section name (pad to 16 bytes)
-			db '__TEXT',0,0,0,0,0,0,0,0,0,0 ; segment name (pad to 16 bytes)
-			dq 0x100000000 + ___codestart - ___TEXTload ; address
-			dq ___codeend - ___codestart    ; size
-			dd ___codestart ; offset
-			dd 0            ; alignment as power of 2 (1)
-			dd 0            ; relocations data offset
-			dd 0            ; number of relocations
-			dd 0x80000400   ; S_REGULAR | S_ATTR_PURE_INSTRUCTIONS | S_ATTR_SOME_INSTRUCTIONS
-			dd 0            ; reserved1
-			dd 0            ; reserved2
-			dd 0            ; reserved3
-
-			SIZE:
-			16 * 2 = 32
-			dq * 2 = 12
-			dd * 8 = 32
-			= 80
-		___TEXTend:
-	*/
 
 	// __TEXT segment contains the machine code
 	s2 := &MachoSeg{
-		name:  "__TEXT",
-		vaddr: s1.vsize,
-		//vsize:      0x1000,
-		vsize:      0x100 + uint64(len(code)),
+		name:       "__TEXT",
+		vaddr:      s1.vsize,
+		vsize:      0x1000,
 		fileoffset: 0,
-		// filesize:   0x1000,
-		filesize: uint64(len(code)),
-		prot1:    7,
-		prot2:    5,
+		filesize:   0x1000,
+		prot1:      7,
+		prot2:      5,
 	}
-
-	s2.sect = []MachoSect{
-		{
-			name:    "__text",
-			segname: "__TEXT",
-			//		addr:    s1.vaddr + 168, // Needs to be where the code starts...
-			addr: s2.vaddr + 0x100,
-			size: uint64(len(code)),
-			off:  0x100,
-			//		off:     loadsize + 168, // start of code
-			flag: S_ATTR_PURE_INSTRUCTIONS | S_ATTR_SOME_INSTRUCTIONS,
-		},
-	}
-	segs++
-	sects++
-
-	// loadsize += 18 * 4 * segs
-	// loadsize += 20 * 4 * sects
-	// size of segments + size of sections
-	//loadsize += 72*2 + 80 // TODO: Include alginments
-
-	// TODO: Clean up with alginment code down below
-	loadsize := 0
-	loadsize += 18 * 4 * segs
-	loadsize += 20 * 4 * sects
-	loadsize = 224
-
-	// s2.sect[0].addr = s2.vaddr + uint64(loadsize)
-	// s2.sect[0].off = uint32(loadsize)
 
 	/*
-		__mh_execute_header:
-			dd 0xfeedfacf   ; MH_MAGIC_64
-			dd 16777223     ; CPU_TYPE_X86 | CPU_ARCH_ABI64
-			dd 0x80000003   ; CPU_SUBTYPE_I386_ALL | CPU_SUBTYPE_LIB64
-			dd 2            ; MH_EXECUTE
-			dd 16           ; number of load commands
-			dd ___loadcmdsend - ___loadcmdsstart    ; size of load commands
-			dd 0x00200085   ; MH_NOUNDEFS | MH_DYLDLINK | MH_TWOLEVEL | MH_PIE
-			dd 0            ; reserved
-		___loadcmdsstart:
+		s2.sect = []MachoSect{
+			{
+				name:    "__text",
+				segname: "__TEXT",
+
+				// TODO: Remove hardcoded addr and off.
+				addr: s2.vaddr + codestart, // 0x100 is hardcoded for where code starts
+				off:  uint32(codestart),
+
+				size: 0x1000 - codestart,
+				flag: S_ATTR_PURE_INSTRUCTIONS | S_ATTR_SOME_INSTRUCTIONS,
+			},
+		}
 	*/
 
 	buf.write32(MH_MAGIC_64)      // Magic Number
@@ -220,18 +136,15 @@ func MachoWrite(code []byte) {
 
 	buf.write32(MH_EXECUTE) // Permissions
 
-	buf.write32(uint32(segs))     // Number of load comamnds (includes segments)
+	buf.write32(uint32(nsegs))    // Number of load comamnds (includes segments)
 	buf.write32(uint32(loadsize)) // Size of the load section
 
 	buf.write32(uint32(MH_NOUNDEFS))
 	buf.write32(0) //Reserved
 
-	fmt.Println("start here", len(*buf))
+	s := len(*buf)
+	fmt.Println("start here", s)
 	for _, s := range []*MachoSeg{s1, s2} {
-		/*
-			padding = (align - (offset mod align)) mod align
-		*/
-
 		size := 72 + 80*len(s.sect)
 		fmt.Println("1", len(*buf), size)
 
@@ -272,19 +185,35 @@ func MachoWrite(code []byte) {
 		fmt.Println("2", len(*buf), size, padding)
 	}
 
-	/*
-		align := 0x1000
-		offset := len(*buf)
-		padding := (align - (offset % align)) % align
-		for i := 0; i < padding; i++ {
-			buf.write(0x00)
-		}
-	*/
+	// Need to tell mac how to find and start the machine code
+	ss := len(*buf)
+	buf.write32(LC_UNIXTHREAD)
+	buf.write32(184) // command size
+	buf.write32(4)   // thread state: x86_THREAD_STATE64
+	buf.write32(42)  // word count: x86_EXCEPTION_STATE64_COUNT
 
-	fmt.Println("len header:", len(*buf))
+	// Setup the initial values for registers
+	buf.write64(0x00, 0x00, 0x00, 0x00) // rax, rbx , rcx , rdx
+	buf.write64(0x00, 0x00, 0x00, 0x00) // rdi, rsi, rbp, rsp
+	buf.write64(0x00, 0x00, 0x00, 0x00) // r8, r9, r10, r11
+	buf.write64(0x00, 0x00, 0x00, 0x00) // r12, r13, r14, r15
+
+	// TODO: Don't hardcode code start address!
+	buf.write64(uint64(origin+codestart), 0x00, 0x00, 0x00, 0x00) // rip=code, rflags, cs, fs, gs
+	fmt.Printf("UNITHREAD: len=%d\n", len(*buf)-ss)
+
+	fmt.Printf("len header: %d - %d = %d\n", len(*buf), s, len(*buf)-s)
+	fmt.Printf("codestart=0x%x\n", len(*buf))
 
 	// Write out code
 	buf.write(code...)
+
+	align := 4096
+	offset := len(*buf)
+	padding := (align - (offset % align)) % align
+	for i := 0; i < padding; i++ {
+		buf.write(0x00)
+	}
 
 	if err := os.WriteFile("./mac_bin", buf.bytes(), 0755); err != nil {
 		log.Fatal(err)

@@ -21,12 +21,11 @@ func main() {
 
 	fmt.Printf("Loads: %d\n", len(f.Loads))
 	for _, l := range f.Loads {
-		// fmt.Printf("\tt=%#v\n", l)
 		switch t := l.(type) {
 		case *macho.Segment:
 			fmt.Printf("\tsegment: %#v: %d bytes\n", t.SegmentHeader, len(t.LoadBytes))
 		case macho.LoadBytes:
-			fmt.Printf("\tload bytes: %d (%s)\n", len(t), t)
+			fmt.Printf("\tload bytes: %d (%v)\n", len(t), t)
 		case *macho.Symtab:
 			fmt.Printf("\tsymtab: %#v\n", t.SymtabCmd)
 			for _, s := range t.Syms {
@@ -36,6 +35,8 @@ func main() {
 			fmt.Printf("\tdysymtab: %#v\n", t.DysymtabCmd)
 		case *macho.Dylib:
 			fmt.Printf("\tdylib: %#v\n", t)
+		default:
+			log.Fatalf("unknown type=%T", t)
 		}
 	}
 
