@@ -38,7 +38,7 @@ type Instruction interface {
 
 type Imm struct {
 	Inst InstructionType
-	Reg1 RegType
+	Src  RegType
 	Imm  ImmType
 }
 
@@ -46,8 +46,15 @@ func (b Imm) Instruction() InstructionType { return b.Inst }
 
 type Reg struct {
 	Inst InstructionType
-	Reg1 RegType
-	Reg2 RegType
+	Src  RegType
+	Reg  RegType
 }
 
 func (b Reg) Instruction() InstructionType { return b.Inst }
+
+type Syscall struct {
+	Inst InstructionType
+	Arg1 uint32
+}
+
+func (b Syscall) Instruction() InstructionType { return b.Inst }

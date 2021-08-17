@@ -1,14 +1,31 @@
 package main
 
-import "github.com/vishen/assemblor/x64"
+import (
+	"flag"
+	"log"
+	"os"
+
+	"github.com/vishen/assemblor/bytecode"
+	"github.com/vishen/assemblor/ld"
+	"github.com/vishen/assemblor/x64"
+)
+
+var (
+	outputFlag = flag.String("o", "assemblored", "filename to output executable")
+)
 
 func main() {
-	code := []byte{
-		0xb8, 0x01, 0x00, 0x00, 0x02, // movl	$33554433, %eax
-		0xbf, 0x01, 0x00, 0x00, 0x00, // movl	$0, %edi
-		0x0f, 0x05, // syscall
+	g := bytecode.NewGraph()
+	g.MovImm(bytecode.Reg1, 0xdeadbeef)
+	g.SyscallExit(125)
+
+	code := x64.Compile(x64.Macho, g.Bytecode())
+	executable := ld.Macho(code)
+
+	log.Printf("Writing executable to %s", *outputFlag)
+	if err := os.WriteFile(*outputFlag, executable, 0755); err != nil {
+		log.Fatal(err)
 	}
-	x64.MachoWrite(code)
 }
 
 /*

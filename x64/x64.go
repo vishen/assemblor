@@ -1,89 +1,53 @@
 package x64
 
 import (
-	"encoding/binary"
 	"fmt"
 
 	"github.com/vishen/assemblor/bytecode"
 )
 
-type Output struct {
-	data []byte
-}
+type Arch int
 
-func (o *Output) add(b ...byte) {
-	o.data = append(o.data, b...)
-}
+const (
+	Linux Arch = iota
+	Macho
+)
 
-func (o *Output) addImm(imm uint32) {
-	if imm >= 128 {
-		buf := make([]byte, 4)
-		binary.LittleEndian.PutUint32(buf, imm)
-		o.data = append(o.data, buf...)
-	} else {
-		o.data = append(o.data, uint8(imm))
-	}
-}
-
-func (o *Output) rex(operand64Bit, regExt, sibIndexExt, rmExt bool) {
-	var rex byte = 0x40 // REX prefix
-
-	if operand64Bit {
-		rex |= 1 << 3
-	}
-	if regExt {
-		rex |= 1 << 2
-	}
-	if sibIndexExt {
-		rex |= 1 << 1
-	}
-	if rmExt {
-		rex |= 1
-	}
-	o.data = append(o.data, rex)
-}
-
-func (o *Output) modrm(mod byte, reg byte, rm byte) {
-	var modrm byte = 0x0
-	modrm |= (rm | (reg << 3) | (mod << 6))
-	o.data = append(o.data, modrm)
-}
-
-func Compile(bc []bytecode.Instruction) []byte {
-	o := &Output{}
+func Compile(arch Arch, bc []bytecode.Instruction) []byte {
+	o := &output{}
 	for _, b := range bc {
 		switch b.Instruction() {
 		case bytecode.Nop:
 			// Do nothing
 		case bytecode.MovImm:
 			i := b.(bytecode.Imm)
-			src := resolveReg(i.Reg1)
+			src := resolveReg(i.Src)
 			o.rex(true, false, false, src.isExt())
 			o.add(0xC7)
 			o.modrm(0x03, 0, src.val())
 			o.addImm(uint32(i.Imm))
 		case bytecode.MovReg:
 			r := b.(bytecode.Reg)
-			src := resolveReg(r.Reg1)
-			dst := resolveReg(r.Reg2)
+			src := resolveReg(r.Src)
+			dst := resolveReg(r.Reg)
 			o.rex(true, dst.isExt(), false, src.isExt())
 			o.add(0x89)
 			o.modrm(0x03, dst.val(), src.val())
 		case bytecode.Inc:
 			r := b.(bytecode.Imm)
-			src := resolveReg(r.Reg1)
+			src := resolveReg(r.Src)
 			o.rex(true, false, false, src.isExt())
 			o.add(0xFF)
 			o.modrm(0x03, 0, src.val())
 		case bytecode.Dec:
 			r := b.(bytecode.Imm)
-			src := resolveReg(r.Reg1)
+			src := resolveReg(r.Src)
 			o.rex(true, false, false, src.isExt())
 			o.add(0xFF)
 			o.modrm(0x03, 0x01, src.val())
 		case bytecode.AddImm:
 			i := b.(bytecode.Imm)
-			src := resolveReg(i.Reg1)
+			src := resolveReg(i.Src)
 			imm := uint32(i.Imm)
 
 			// NOTE: src == RAX and imm == 32-bit, then special case
@@ -103,14 +67,15 @@ func Compile(bc []bytecode.Instruction) []byte {
 			o.addImm(imm)
 		case bytecode.AddReg:
 			r := b.(bytecode.Reg)
-			src := resolveReg(r.Reg1)
-			dst := resolveReg(r.Reg2)
+			src := resolveReg(r.Src)
+			dst := resolveReg(r.Reg)
 			o.rex(true, dst.isExt(), false, src.isExt())
 			o.add(0x01)
 			o.modrm(0x03, dst.val(), src.val())
 		case bytecode.SyscallExit:
-			if true {
-				// handle linux
+			s := b.(bytecode.Syscall)
+			switch arch {
+			case Linux:
 				// TODO: Move MovImm into a function to consolidate with bytecode.MovImm?
 				{
 					src := rax
@@ -124,16 +89,27 @@ func Compile(bc []bytecode.Instruction) []byte {
 					o.rex(true, false, false, src.isExt())
 					o.add(0xC7)
 					o.modrm(0x03, 0, src.val())
-					o.addImm(0)
+					o.addImm(s.Arg1)
 				}
+				// Syscall
 				o.add(0xcd, 0x80)
-			} else {
-				// handle osx
-				/*
-					mov rax, 0x02000001     ; sys_exit syscall number: 1 (add 0x02000000 for OS X)
-					xor rdi, rdi            ; set exit status to 0 (`xor rdi, rdi` is equal to `mov rdi, 0` )
-					syscall					; call exit()
-				*/
+			case Macho:
+				{
+					src := rax
+					o.rex(true, false, false, src.isExt())
+					o.add(0xC7)
+					o.modrm(0x03, 0, src.val())
+					o.addImm(0x02000001)
+				}
+				{
+					src := rdi
+					o.rex(true, false, false, src.isExt())
+					o.add(0xC7)
+					o.modrm(0x03, 0, src.val())
+					o.addImm(s.Arg1)
+				}
+				// Syscall
+				o.add(0x0f, 0x05)
 			}
 		}
 	}
