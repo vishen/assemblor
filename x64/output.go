@@ -6,6 +6,18 @@ type output struct {
 	data []byte
 }
 
+func (o *output) offset() int {
+	return len(o.data)
+}
+
+func (o *output) fill32(index int, val uint32) {
+	buf := make([]byte, 4)
+	binary.LittleEndian.PutUint32(buf, val)
+	for i, d := range buf {
+		o.data[index+i] = d
+	}
+}
+
 func (o *output) add(b ...byte) {
 	o.data = append(o.data, b...)
 }

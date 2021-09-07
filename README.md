@@ -5,6 +5,7 @@
 ### X64
 
 - https://defuse.ca/online-x86-assembler.htm#disassembly
+- https://uica.uops.info/
 
 ### Macho-o
 
@@ -16,3 +17,7 @@
 - https://gist.github.com/zliuva/1084476
 - https://github.com/aidansteele/osx-abi-macho-file-format-reference
 - https://opensource.apple.com/source/xnu/xnu-1504.7.4/osfmk/mach/i386/thread_status.h
+
+### lldb
+
+- https://lldb.llvm.org/use/map.html

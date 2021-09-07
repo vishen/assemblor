@@ -15,10 +15,32 @@ const (
 
 func Compile(arch Arch, bc []bytecode.Instruction) []byte {
 	o := &output{}
-	for _, b := range bc {
+
+	/*
+		1. loop through instructions and output machine code
+			for non-branch instructions and keep track of the current
+			labels and branch instructions
+		2. loop through instructions backwards and resolve labels for all
+			branch instructions
+	*/
+	labels := make(map[bytecode.LabelType]int)
+	branches := make(map[int]int)
+	for j, b := range bc {
 		switch b.Instruction() {
+		case bytecode.Invalid:
+			fmt.Printf("invalid bytecode found at %d", j)
 		case bytecode.Nop:
 			// Do nothing
+		case bytecode.Label:
+			l := b.(bytecode.LabelType)
+			labels[l] = o.offset()
+		case bytecode.Jmp:
+			b := b.(bytecode.Branch)
+			// Currently everything is just assumed to be a 32 bit displacement
+			// sign extended to 64 bits
+			// TODO: Find the proper way to do this better
+			o.add(0xe9, 0x00, 0x00, 0x00, 0x00)
+			branches[b.ID] = o.offset()
 		case bytecode.MovImm:
 			i := b.(bytecode.Imm)
 			src := resolveReg(i.Src)
@@ -111,6 +133,25 @@ func Compile(arch Arch, bc []bytecode.Instruction) []byte {
 				// Syscall
 				o.add(0x0f, 0x05)
 			}
+		default:
+			// TODO: What to do in case of missing instruction
+		}
+	}
+
+	// Resolve all the jmps
+	for _, b := range bc {
+		switch b.Instruction() {
+		case bytecode.Jmp:
+			b := b.(bytecode.Branch)
+			offset := branches[b.ID]
+			offsetToWrite := offset - 4 // len of the jmp instruction
+			labelOffset := labels[b.Label]
+			fmt.Println("JMP", offset, offsetToWrite, labelOffset)
+			if jmpDiff := uint32(labelOffset - offset); jmpDiff > 0 {
+				o.fill32(offsetToWrite, jmpDiff)
+			} else {
+				o.fill32(offsetToWrite, 0xffffffff+jmpDiff)
+			}
 		}
 	}
 	return o.data
@@ -119,6 +160,7 @@ func Compile(arch Arch, bc []bytecode.Instruction) []byte {
 func resolveReg(reg bytecode.RegType) reg {
 	// TODO: Could we allocate registers semi-dynamically favouring
 	// reg1 where possible?
+	// https://wiki.cdot.senecacollege.ca/wiki/X86_64_Register_and_Instruction_Quick_Start
 	switch reg {
 	case bytecode.Reg1:
 		return rax
@@ -127,9 +169,9 @@ func resolveReg(reg bytecode.RegType) reg {
 	case bytecode.Reg3:
 		return rdx
 	case bytecode.Reg4:
-		return rsi
+		return rbx
 	case bytecode.Reg5:
-		return rdi
+		return r15
 	case bytecode.Reg6:
 		return r8
 	case bytecode.Reg7:
@@ -145,7 +187,7 @@ func resolveReg(reg bytecode.RegType) reg {
 	case bytecode.Reg12:
 		return r14
 	}
-	panic(fmt.Sprintf("%v bytecode register doesn't map to an x64 register"))
+	panic(fmt.Sprintf("%v bytecode register doesn't map to an x64 register", reg))
 }
 
 type reg int8

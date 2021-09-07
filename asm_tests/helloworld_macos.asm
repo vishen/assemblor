@@ -1,6 +1,91 @@
 global  _main
   section  .text
 _main:
+label2:
+  jmp label1
+  mov rax, 0xdeadbeef
+label1:
+  mov rax, 0xdeadbeef
+  mov rax, 0xdeadbeef
+jmp label1
+  mov rax, 0xdeadbeef
+  mov rax, 0xdeadbeef
+  mov rax, 0xdeadb
+  mov rax, 0xdeadbeef
+  mov rax, 0xdeadbeef
+  mov rax, 0xdeadbeef
+  mov rax, 0xdead
+  mov rax, 0xdeadbeef
+  mov rax, 0xdeadbeef
+  mov rax, 0xdeadbeef
+  mov rax, 0xdeadbeef
+  mov rax, 0xdeadbeef
+  mov rax, 0xdeadbeef
+  mov rax, 0xdeadbeef
+  mov rax, 0xdeadbeef
+  mov rax, 0xdeadbeef
+  mov rax, 0xdeadbeef
+  mov rax, 0xdeadbeef
+  mov rax, 0xdeadbeef
+  mov rax, 0xdeadbeef
+  mov rax, 0xdeadbeef
+  mov rax, 0xdeadbeef
+  mov rax, 0xdeadbeef
+  mov rax, 0xdeadbeef
+  mov rax, 0xdeadbeef
+  mov rax, 0xdeadbeef
+  mov rax, 0xdeadbeef
+  mov rax, 0xdeadb
+  mov rax, 0xdeadbeef
+  mov rax, 0xdeadbeef
+  mov rax, 0xdeadbeef
+  mov rax, 0xdead
+  mov rax, 0xdeadbeef
+  mov rax, 0xdeadbeef
+  mov rax, 0xdeadbeef
+  mov rax, 0xdeadbeef
+  mov rax, 0xdeadbeef
+  mov rax, 0xdeadbeef
+  mov rax, 0xdeadbeef
+  mov rax, 0xdeadbeef
+  mov rax, 0xdeadbeef
+  mov rax, 0xdeadbeef
+  mov rax, 0xdeadbeef
+  mov rax, 0xdeadbeef
+  mov rax, 0xdeadbeef
+  mov rax, 0xdeadbeef
+  mov rax, 0xdeadbeef
+  mov rax, 0xdeadbeef
+  mov rax, 0xdeadbeef
+  mov rax, 0xdeadbeef
+  mov rax, 0xdeadbeef
+  mov rax, 0xdeadbeef
+  mov rax, 0xdeadb
+  mov rax, 0xdeadbeef
+  mov rax, 0xdeadbeef
+  mov rax, 0xdeadbeef
+  mov rax, 0xdead
+  mov rax, 0xdeadbeef
+  mov rax, 0xdeadbeef
+  mov rax, 0xdeadbeef
+  mov rax, 0xdeadbeef
+  mov rax, 0xdeadbeef
+  mov rax, 0xdeadbeef
+  mov rax, 0xdeadbeef
+  mov rax, 0xdeadbeef
+  mov rax, 0xdeadbeef
+  mov rax, 0xdeadbeef
+  mov rax, 0xdeadbeef
+  mov rax, 0xdeadbeef
+  mov rax, 0xdeadbeef
+  mov rax, 0xdeadbeef
+  mov rax, 0xdeadbeef
+jmp label2
+label3:
+  mov rax, 0xdeadbeef
+  mov rax, 0xdeadbeef
+  mov rax, 0xdeadbeef
+  mov rax, 0xdeadbeef
   mov    rax, 0x02000004    ; system call for write
   mov    rdi, 1             ; file descriptor 1 is stdout
   mov    rsi, qword message ; get string address
