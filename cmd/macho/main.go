@@ -30,15 +30,20 @@ func main() {
 	fmt.Println()
 
 	textStart := 0
+	textAddr := uint64(0)
 	fmt.Printf("Loads: %d\n", len(f.Loads))
 	for _, l := range f.Loads {
 		switch t := l.(type) {
 		case *macho.Segment:
 			fmt.Printf("\tsegment: %#v: %d bytes\n", t.SegmentHeader, len(t.LoadBytes))
 			textStart += len(t.LoadBytes)
+			if t.Name == "__TEXT" {
+				textAddr = t.Addr
+			}
 		case macho.LoadBytes:
 			fmt.Printf("\tload bytes: %d (%v)\n", len(t), t)
 			textStart += len(t)
+			textAddr += uint64(len(t))
 		case *macho.Symtab:
 			fmt.Printf("\tsymtab: %#v\n", t.SymtabCmd)
 			for _, s := range t.Syms {
@@ -66,7 +71,7 @@ func main() {
 
 	fmt.Println()
 	fmt.Println()
-	fmt.Println("Assembly:")
+	fmt.Printf("Assembly: start addr 0x%x\n", textAddr)
 	nop := 0
 	for i := textStart; i < len(data); {
 		if data[i] == 0x00 {

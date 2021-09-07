@@ -16,6 +16,36 @@ var (
 
 func main() {
 	g := bytecode.NewGraph()
+	g.MovImm(bytecode.Reg1, 0x05)
+
+	l1 := g.FutureLabel()
+	g.Jmp(l1)
+
+	l2 := g.Label()
+	g.AddImm(bytecode.Reg1, 0x03)
+	g.SyscallExit(125)
+
+	g.ResolveLabel(l1)
+	g.AddImm(bytecode.Reg1, 0x02)
+	g.Jmp(l2)
+
+	g.Print()
+
+	bc, err := g.Bytecode()
+	if err != nil {
+		log.Fatal(err)
+	}
+	code := x64.Compile(x64.Macho, bc)
+	executable := ld.Macho(code)
+
+	log.Printf("Writing executable to %s", *outputFlag)
+	if err := os.WriteFile(*outputFlag, executable, 0755); err != nil {
+		log.Fatal(err)
+	}
+}
+
+func example1() {
+	g := bytecode.NewGraph()
 	l1 := g.Label()
 	g.MovImm(bytecode.Reg1, 0x05)
 	g.MovReg(bytecode.Reg2, bytecode.Reg1)

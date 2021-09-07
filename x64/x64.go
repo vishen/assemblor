@@ -16,13 +16,6 @@ const (
 func Compile(arch Arch, bc []bytecode.Instruction) []byte {
 	o := &output{}
 
-	/*
-		1. loop through instructions and output machine code
-			for non-branch instructions and keep track of the current
-			labels and branch instructions
-		2. loop through instructions backwards and resolve labels for all
-			branch instructions
-	*/
 	labels := make(map[bytecode.LabelType]int)
 	branches := make(map[int]int)
 	for j, b := range bc {
@@ -77,13 +70,18 @@ func Compile(arch Arch, bc []bytecode.Instruction) []byte {
 				// REX.W + 05 id	ADD RAX, imm32
 				o.add(0x05)
 			} else {
-				if imm < 128 {
-					// REX.W + 83 /0 ib    ADD r/m64, imm8
-					o.add(0x83)
-				} else {
-					// REX.W + 81 /0 id	ADD r/m64, imm32
-					o.add(0x81)
-				}
+				/*
+					// TODO: Fix? AddImm always does a uint32, but for the <128 case
+					// it should only be a single byte...
+					if imm < 128 {
+						// REX.W + 83 /0 ib    ADD r/m64, imm8
+						o.add(0x83)
+					} else {
+						// REX.W + 81 /0 id	ADD r/m64, imm32
+						o.add(0x81)
+					}
+				*/
+				o.add(0x81)
 				o.modrm(0x03, 0, src.val())
 			}
 			o.addImm(imm)
@@ -146,7 +144,6 @@ func Compile(arch Arch, bc []bytecode.Instruction) []byte {
 			offset := branches[b.ID]
 			offsetToWrite := offset - 4 // len of the jmp instruction
 			labelOffset := labels[b.Label]
-			fmt.Println("JMP", offset, offsetToWrite, labelOffset)
 			if jmpDiff := uint32(labelOffset - offset); jmpDiff > 0 {
 				o.fill32(offsetToWrite, jmpDiff)
 			} else {
