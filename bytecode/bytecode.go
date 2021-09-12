@@ -76,6 +76,8 @@ const (
 	Dec
 	AddImm
 	AddReg
+	CmpImm
+	CmpReg
 	Jmp
 	Label
 	SyscallExit
@@ -105,6 +107,10 @@ func (i InstructionType) String() string {
 		return "AddImm"
 	case AddReg:
 		return "AddReg"
+	case CmpImm:
+		return "CmpImm"
+	case CmpReg:
+		return "CmpReg"
 	case Jmp:
 		return "Jmp"
 	case Label:

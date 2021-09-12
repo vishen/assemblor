@@ -16,8 +16,6 @@ const (
 func Compile(arch Arch, bc []bytecode.Instruction, bssAddr uint64) ([]byte, uint64) {
 	o := &output{}
 
-	fmt.Println("BSS ADDR", bssAddr)
-
 	movReg := func(dst, src reg) {
 		o.rex(true, src.isExt(), false, dst.isExt())
 		o.add(0x89)
@@ -65,6 +63,7 @@ func Compile(arch Arch, bc []bytecode.Instruction, bssAddr uint64) ([]byte, uint
 			dst := resolveReg(a.Dst)
 			movImm(dst, uint32(uint64(a.Addr)+bssAddr))
 			/*
+				// TODO: This does a mov from memory into register, will be useful at some point
 				o.rex(true, dst.isExt(), false, false)
 				o.add(0x8b)
 				o.modrm(0x00, dst.val(), 0x04)
@@ -125,6 +124,29 @@ func Compile(arch Arch, bc []bytecode.Instruction, bssAddr uint64) ([]byte, uint
 			o.rex(true, src.isExt(), false, dst.isExt())
 			o.add(0x01)
 			o.modrm(0x03, src.val(), dst.val())
+		case bytecode.CmpReg:
+			r := b.(bytecode.Reg)
+			dst := resolveReg(r.Dst)
+			src := resolveReg(r.Reg)
+			o.rex(true, src.isExt(), false, dst.isExt())
+			o.add(0x39)
+			o.modrm(0x03, src.val(), dst.val())
+		case bytecode.CmpImm:
+			// TODO: Refactor with AddImm?
+			i := b.(bytecode.Imm)
+			dst := resolveReg(i.DstReg)
+			imm := uint32(i.Imm)
+
+			o.rex(true, false, false, dst.isExt())
+			// NOTE: dst == RAX and imm == 32-bit, then special case
+			if dst == rax && imm >= 128 {
+				// REX.W + 3D id	CMP RAX, imm32
+				o.add(0x3d)
+			} else {
+				o.add(0x81)
+				o.modrm(0x03, 0x07, dst.val())
+			}
+			o.addImm(imm)
 		case bytecode.SyscallExit:
 			s := b.(bytecode.Syscall)
 			switch arch {

@@ -51,6 +51,12 @@ func testGraph() *bytecode.Graph {
 	g.MovImm(bytecode.Reg1, 125)
 	g.SyscallExit(bytecode.Reg1)
 
+	g.CmpReg(bytecode.Reg1, bytecode.Reg2)
+	g.CmpImm(bytecode.Reg1, 0x03)
+	g.CmpImm(bytecode.Reg1, 0xdeadbee)
+	g.CmpImm(bytecode.Reg10, 0x03)
+	g.CmpImm(bytecode.Reg10, 0xdeadbee)
+
 	return g
 }
 

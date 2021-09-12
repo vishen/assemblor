@@ -114,6 +114,22 @@ func (g *Graph) ResolveLabel(l LabelType) {
 	g.inst = append(g.inst, l)
 }
 
+func (g *Graph) CmpImm(r RegType, i ImmType) {
+	g.inst = append(g.inst, Imm{
+		Inst:   CmpImm,
+		DstReg: r,
+		Imm:    i,
+	})
+}
+
+func (g *Graph) CmpReg(r RegType, r2 RegType) {
+	g.inst = append(g.inst, Reg{
+		Inst: CmpReg,
+		Dst:  r,
+		Reg:  r2,
+	})
+}
+
 func (g *Graph) Jmp(l LabelType) {
 	g.inst = append(g.inst, Branch{
 		ID:    g.branchID(),
