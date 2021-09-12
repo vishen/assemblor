@@ -28,6 +28,12 @@ func (o *output) addImm(imm uint32) {
 	o.data = append(o.data, buf...)
 }
 
+func (o *output) addImm64(imm uint64) {
+	buf := make([]byte, 8)
+	binary.LittleEndian.PutUint64(buf, imm)
+	o.data = append(o.data, buf...)
+}
+
 func (o *output) rex(operand64Bit, regExt, sibIndexExt, rmExt bool) {
 	var rex byte = 0x40 // REX prefix
 

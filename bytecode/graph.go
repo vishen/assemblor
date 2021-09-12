@@ -7,6 +7,8 @@ type Graph struct {
 
 	labeln  int
 	branchn int
+
+	dataSize uint32
 }
 
 func NewGraph() *Graph {
@@ -34,48 +36,64 @@ func (g *Graph) Bytecode() ([]Instruction, error) {
 	return g.inst, nil
 }
 
+func (g *Graph) WriteImm(a AddrType, i ImmType) {
+	g.inst = append(g.inst, Imm{
+		Inst:    WriteImm,
+		DstAddr: a,
+		Imm:     i,
+	})
+}
+
 func (g *Graph) MovImm(r RegType, i ImmType) {
 	g.inst = append(g.inst, Imm{
-		Inst: MovImm,
-		Src:  r,
-		Imm:  i,
+		Inst:   MovImm,
+		DstReg: r,
+		Imm:    i,
+	})
+}
+
+func (g *Graph) MovAddr(r RegType, a AddrType) {
+	g.inst = append(g.inst, Addr{
+		Inst: MovAddr,
+		Dst:  r,
+		Addr: a,
 	})
 }
 
 func (g *Graph) MovReg(r RegType, r2 RegType) {
 	g.inst = append(g.inst, Reg{
 		Inst: MovReg,
-		Src:  r,
+		Dst:  r,
 		Reg:  r2,
 	})
 }
 
 func (g *Graph) Inc(r RegType) {
 	g.inst = append(g.inst, Imm{
-		Inst: Inc,
-		Src:  r,
+		Inst:   Inc,
+		DstReg: r,
 	})
 }
 
 func (g *Graph) Dec(r RegType) {
 	g.inst = append(g.inst, Imm{
-		Inst: Dec,
-		Src:  r,
+		Inst:   Dec,
+		DstReg: r,
 	})
 }
 
 func (g *Graph) AddImm(r RegType, i ImmType) {
 	g.inst = append(g.inst, Imm{
-		Inst: AddImm,
-		Src:  r,
-		Imm:  i,
+		Inst:   AddImm,
+		DstReg: r,
+		Imm:    i,
 	})
 }
 
 func (g *Graph) AddReg(r RegType, r2 RegType) {
 	g.inst = append(g.inst, Reg{
 		Inst: AddReg,
-		Src:  r,
+		Dst:  r,
 		Reg:  r2,
 	})
 }
@@ -104,9 +122,28 @@ func (g *Graph) Jmp(l LabelType) {
 	})
 }
 
-func (g *Graph) SyscallExit(statusCode uint32) {
+func (g *Graph) ReserveBytes(size uint32) AddrType {
+	g.inst = append(g.inst, Data{
+		Inst: ReserveBytes,
+		Arg1: size,
+	})
+
+	bssSize := g.dataSize
+	g.dataSize += size
+	return AddrType(bssSize)
+}
+
+func (g *Graph) SyscallExit(statusCodePtr RegType) {
 	g.inst = append(g.inst, Syscall{
 		Inst: SyscallExit,
-		Arg1: statusCode,
+		Reg1: statusCodePtr,
+	})
+}
+
+func (g *Graph) SyscallWrite(dataPtr RegType, length RegType) {
+	g.inst = append(g.inst, Syscall{
+		Inst: SyscallWrite,
+		Reg1: dataPtr,
+		Reg2: length,
 	})
 }

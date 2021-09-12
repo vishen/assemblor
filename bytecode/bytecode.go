@@ -2,6 +2,12 @@ package bytecode
 
 import "fmt"
 
+type AddrType uint64
+
+func (a AddrType) Offset(offset int) AddrType {
+	return AddrType(uint64(a) + uint64(offset))
+}
+
 type ImmType uint32
 
 type RegType int
@@ -64,6 +70,8 @@ const (
 	Nop
 	MovImm
 	MovReg
+	MovAddr
+	WriteImm
 	Inc
 	Dec
 	AddImm
@@ -71,6 +79,8 @@ const (
 	Jmp
 	Label
 	SyscallExit
+	SyscallWrite
+	ReserveBytes
 )
 
 func (i InstructionType) String() string {
@@ -83,6 +93,10 @@ func (i InstructionType) String() string {
 		return "MovImm"
 	case MovReg:
 		return "MovReg"
+	case MovAddr:
+		return "MovAddr"
+	case WriteImm:
+		return "WriteImm"
 	case Inc:
 		return "Inc"
 	case Dec:
@@ -97,8 +111,12 @@ func (i InstructionType) String() string {
 		return "Label"
 	case SyscallExit:
 		return "SyscallExit"
+	case SyscallWrite:
+		return "SyscallWrite"
+	case ReserveBytes:
+		return "ReserveBytes"
 	}
-	return fmt.Sprintf("unknown instruction type %d", i)
+	return fmt.Sprintf("Unknown(%d)", i)
 }
 
 type Instruction interface {
@@ -116,20 +134,29 @@ func (l LabelType) String() string {
 }
 
 type Imm struct {
-	Inst InstructionType
-	Src  RegType
-	Imm  ImmType
+	Inst    InstructionType
+	DstReg  RegType
+	DstAddr AddrType
+	Imm     ImmType
 }
 
 func (b Imm) Instruction() InstructionType { return b.Inst }
 
 type Reg struct {
 	Inst InstructionType
-	Src  RegType
+	Dst  RegType
 	Reg  RegType
 }
 
 func (b Reg) Instruction() InstructionType { return b.Inst }
+
+type Addr struct {
+	Inst InstructionType
+	Dst  RegType
+	Addr AddrType
+}
+
+func (b Addr) Instruction() InstructionType { return b.Inst }
 
 type Branch struct {
 	ID    int
@@ -141,7 +168,15 @@ func (b Branch) Instruction() InstructionType { return b.Inst }
 
 type Syscall struct {
 	Inst InstructionType
-	Arg1 uint32
+	Reg1 RegType
+	Reg2 RegType
 }
 
 func (b Syscall) Instruction() InstructionType { return b.Inst }
+
+type Data struct {
+	Inst InstructionType
+	Arg1 uint32
+}
+
+func (b Data) Instruction() InstructionType { return b.Inst }

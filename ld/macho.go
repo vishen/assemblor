@@ -2,7 +2,10 @@ package ld
 
 const (
 	// VM start address
-	machoOrigin uint64 = 0x100000000
+	machoOrigin uint64 = 0x1000000
+
+	// BSS start address
+	bssOrigin uint64 = 0x2000000
 
 	// Minimum code size for a mach-o executable
 	minCodeSize int = 0x1000
@@ -38,13 +41,21 @@ type machoSeg struct {
 	flag uint32
 }
 
+type Macho struct{}
+
+func NewMacho() Macho {
+	return Macho{}
+}
+
+func (m Macho) BssAddr() uint64 {
+	return bssOrigin
+}
+
 // Macho will take machine code and turn it into an executable
 // macho file
 //
-// Currently it only creates and x64 executable.
-func Macho(code []byte) []byte {
-	// TODO: Will need to do __DATA
-
+// Currently it only creates an x64 executable.
+func (m Macho) Link(code []byte, bssSize uint64) []byte {
 	// Mach-o required at the code data to be at least 4096 bytes otherwise
 	// it is unable to execute it. Ensure the code size if larger than
 	// the required size, otherwise set it to the minimum required size
@@ -56,9 +67,16 @@ func Macho(code []byte) []byte {
 		codeSize = minCodeSize
 	}
 
+	dataSize := bssSize
+	if bssSize > 0 && dataSize < uint64(minCodeSize) {
+		dataSize = uint64(minCodeSize)
+	}
+
 	// Offsets into the output where data needs to be back-patched
 	var loadsizeOffset int = 0
 	var codestartOffset int = 0
+
+	nsegs := uint32(3) // Number of segments; __PAGEZERO, __TEXT, UNIXTHREAD
 
 	// __PAGEZERO segment is used for null pointer deferences
 	s1 := &machoSeg{
@@ -77,6 +95,21 @@ func Macho(code []byte) []byte {
 		prot2:      5,
 	}
 
+	// __DATA segment contains uninitialise data
+	var s3 *machoSeg
+	if dataSize > 0 {
+		s3 = &machoSeg{
+			name:       "__DATA",
+			vaddr:      m.BssAddr(),
+			vsize:      dataSize,
+			fileoffset: 0,
+			filesize:   0,
+			prot1:      3,
+			prot2:      3,
+		}
+		nsegs++
+	}
+
 	// Start writing mach-o binary data
 
 	// Mach-o Headers
@@ -86,7 +119,7 @@ func Macho(code []byte) []byte {
 
 	buf.write32(MH_EXECUTE) // Permissions
 
-	buf.write32(3) // Number of segments; __PAGEZERO, __TEXT, UNIXTHREAD
+	buf.write32(nsegs)
 
 	loadsizeOffset = buf.offset()
 	buf.write32(uint32(toFill)) // Size of the load section
@@ -95,9 +128,13 @@ func Macho(code []byte) []byte {
 	buf.write32(0)                   //Reserved
 
 	loadsizeStart := buf.offset()
-	for _, s := range []*machoSeg{s1, s2} {
+	for _, s := range []*machoSeg{s1, s2, s3} {
+		// s3 is a __DATA segment and could be empty
+		if s == nil {
+			continue
+		}
 		buf.write32(LC_SEGMENT_64)
-		buf.write32(72) // Size if always 72
+		buf.write32(72) // Size is always 72
 		buf.writeString(s.name, 16)
 		buf.write64(s.vaddr)
 		buf.write64(s.vsize)
@@ -116,7 +153,7 @@ func Macho(code []byte) []byte {
 	buf.write32(42)  // word count: x86_EXCEPTION_STATE64_COUNT
 
 	// Setup the initial values for registers
-	buf.write64(0x00, 0x00, 0x00, 0x00) // rax, rbx , rcx , rdx
+	buf.write64(0x00, 0x00, 0x00, 0x00) // rax, rbx, rcx, rdx
 	buf.write64(0x00, 0x00, 0x00, 0x00) // rdi, rsi, rbp, rsp
 	buf.write64(0x00, 0x00, 0x00, 0x00) // r8, r9, r10, r11
 	buf.write64(0x00, 0x00, 0x00, 0x00) // r12, r13, r14, r15

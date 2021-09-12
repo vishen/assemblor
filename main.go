@@ -14,29 +14,58 @@ var (
 	outputFlag = flag.String("o", "assemblored", "filename to output executable")
 )
 
-func main() {
+func testGraph() *bytecode.Graph {
 	g := bytecode.NewGraph()
-	g.MovImm(bytecode.Reg1, 0x05)
 
-	l1 := g.FutureLabel()
-	g.Jmp(l1)
+	/*
+		g.MovImm(bytecode.Reg1, 0x05)
+		g.MovAddr(bytecode.Reg2, bytecode.AddrType(0xdeadbe))
+		g.SyscallExit(123)
+	*/
 
-	l2 := g.Label()
-	g.AddImm(bytecode.Reg1, 0x03)
-	g.SyscallExit(125)
+	/*
+		l1 := g.FutureLabel()
+		g.Jmp(l1)
 
-	g.ResolveLabel(l1)
-	g.AddImm(bytecode.Reg1, 0x02)
-	g.Jmp(l2)
+		l2 := g.Label()
+		g.AddImm(bytecode.Reg1, 0x03)
+		g.SyscallExit(125)
 
+		g.ResolveLabel(l1)
+		g.AddImm(bytecode.Reg1, 0x02)
+		g.Jmp(l2)
+	*/
+
+	// g.WriteReg(addr, bytecode.Reg1)
+
+	addr := g.ReserveBytes(100 * 8)  // [100]int8
+	g.WriteImm(addr, 0x48)           // H
+	g.WriteImm(addr.Offset(1), 0x65) // e
+	g.WriteImm(addr.Offset(2), 0x6c) // l
+	g.WriteImm(addr.Offset(3), 0x6c) // l
+	g.WriteImm(addr.Offset(4), 0x6f) // o
+	g.MovAddr(bytecode.Reg1, addr)
+	g.MovImm(bytecode.Reg2, 0x05)
+	g.SyscallWrite(bytecode.Reg1, bytecode.Reg2)
+
+	g.MovImm(bytecode.Reg1, 125)
+	g.SyscallExit(bytecode.Reg1)
+
+	return g
+}
+
+func main() {
+	g := testGraph()
 	g.Print()
 
 	bc, err := g.Bytecode()
 	if err != nil {
 		log.Fatal(err)
 	}
-	code := x64.Compile(x64.Macho, bc)
-	executable := ld.Macho(code)
+
+	linker := ld.NewMacho()
+	code, bssSize := x64.Compile(x64.Macho, bc, linker.BssAddr())
+	executable := linker.Link(code, bssSize)
 
 	log.Printf("Writing executable to %s", *outputFlag)
 	if err := os.WriteFile(*outputFlag, executable, 0755); err != nil {
@@ -44,6 +73,7 @@ func main() {
 	}
 }
 
+/*
 func example1() {
 	g := bytecode.NewGraph()
 	l1 := g.Label()
@@ -83,6 +113,7 @@ func example1() {
 		log.Fatal(err)
 	}
 }
+*/
 
 /*
 func test() {

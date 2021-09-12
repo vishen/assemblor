@@ -1,5 +1,3 @@
-
-
 ## Resources
 
 ### X64
