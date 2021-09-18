@@ -72,6 +72,7 @@ const (
 	MovReg
 	MovAddr
 	WriteImm
+	WriteReg
 	Inc
 	Dec
 	AddImm
@@ -79,6 +80,7 @@ const (
 	CmpImm
 	CmpReg
 	Jmp
+	BranchCond
 	Label
 	SyscallExit
 	SyscallWrite
@@ -99,6 +101,8 @@ func (i InstructionType) String() string {
 		return "MovAddr"
 	case WriteImm:
 		return "WriteImm"
+	case WriteReg:
+		return "WriteReg"
 	case Inc:
 		return "Inc"
 	case Dec:
@@ -113,6 +117,8 @@ func (i InstructionType) String() string {
 		return "CmpReg"
 	case Jmp:
 		return "Jmp"
+	case BranchCond:
+		return "BranchCond"
 	case Label:
 		return "Label"
 	case SyscallExit:
@@ -149,9 +155,10 @@ type Imm struct {
 func (b Imm) Instruction() InstructionType { return b.Inst }
 
 type Reg struct {
-	Inst InstructionType
-	Dst  RegType
-	Reg  RegType
+	Inst    InstructionType
+	DstReg  RegType
+	DstAddr AddrType
+	Reg     RegType
 }
 
 func (b Reg) Instruction() InstructionType { return b.Inst }
@@ -165,9 +172,12 @@ type Addr struct {
 func (b Addr) Instruction() InstructionType { return b.Inst }
 
 type Branch struct {
-	ID    int
-	Inst  InstructionType
-	Label LabelType
+	ID           int
+	Inst         InstructionType
+	Reg1         RegType
+	Cond         ConditionalType
+	Reg2         RegType
+	JmpTrueLabel LabelType
 }
 
 func (b Branch) Instruction() InstructionType { return b.Inst }

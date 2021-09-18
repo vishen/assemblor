@@ -44,6 +44,14 @@ func (g *Graph) WriteImm(a AddrType, i ImmType) {
 	})
 }
 
+func (g *Graph) WriteReg(a AddrType, r RegType) {
+	g.inst = append(g.inst, Reg{
+		Inst:    WriteReg,
+		DstAddr: a,
+		Reg:     r,
+	})
+}
+
 func (g *Graph) MovImm(r RegType, i ImmType) {
 	g.inst = append(g.inst, Imm{
 		Inst:   MovImm,
@@ -62,9 +70,9 @@ func (g *Graph) MovAddr(r RegType, a AddrType) {
 
 func (g *Graph) MovReg(r RegType, r2 RegType) {
 	g.inst = append(g.inst, Reg{
-		Inst: MovReg,
-		Dst:  r,
-		Reg:  r2,
+		Inst:   MovReg,
+		DstReg: r,
+		Reg:    r2,
 	})
 }
 
@@ -92,9 +100,9 @@ func (g *Graph) AddImm(r RegType, i ImmType) {
 
 func (g *Graph) AddReg(r RegType, r2 RegType) {
 	g.inst = append(g.inst, Reg{
-		Inst: AddReg,
-		Dst:  r,
-		Reg:  r2,
+		Inst:   AddReg,
+		DstReg: r,
+		Reg:    r2,
 	})
 }
 func (g *Graph) Label() LabelType {
@@ -124,17 +132,28 @@ func (g *Graph) CmpImm(r RegType, i ImmType) {
 
 func (g *Graph) CmpReg(r RegType, r2 RegType) {
 	g.inst = append(g.inst, Reg{
-		Inst: CmpReg,
-		Dst:  r,
-		Reg:  r2,
+		Inst:   CmpReg,
+		DstReg: r,
+		Reg:    r2,
 	})
 }
 
 func (g *Graph) Jmp(l LabelType) {
 	g.inst = append(g.inst, Branch{
-		ID:    g.branchID(),
-		Inst:  Jmp,
-		Label: l,
+		ID:           g.branchID(),
+		Inst:         Jmp,
+		JmpTrueLabel: l,
+	})
+}
+
+func (g *Graph) BranchCond(r1 RegType, c ConditionalType, r2 RegType, l LabelType) {
+	g.inst = append(g.inst, Branch{
+		ID:           g.branchID(),
+		Inst:         BranchCond,
+		Reg1:         r1,
+		Cond:         c,
+		Reg2:         r2,
+		JmpTrueLabel: l,
 	})
 }
 

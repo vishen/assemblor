@@ -29,10 +29,20 @@ func Compile(arch Arch, bc []bytecode.Instruction, bssAddr uint64) ([]byte, uint
 		o.addImm(imm)
 	}
 
+	cmpReg := func(r1, r2 reg) {
+		o.rex(true, r2.isExt(), false, r1.isExt())
+		o.add(0x39)
+		o.modrm(0x03, r2.val(), r1.val())
+	}
+
 	bssSize := uint64(0)
 
+	type branch struct {
+		offset, offsetToWrite int
+	}
+
 	labels := make(map[bytecode.LabelType]int)
-	branches := make(map[int]int)
+	branches := make(map[int]branch)
 	for j, b := range bc {
 		switch b.Instruction() {
 		case bytecode.Invalid:
@@ -48,14 +58,32 @@ func Compile(arch Arch, bc []bytecode.Instruction, bssAddr uint64) ([]byte, uint
 			// sign extended to 64 bits
 			// TODO: Find the proper way to do this better
 			o.add(0xe9, 0x00, 0x00, 0x00, 0x00)
-			branches[b.ID] = o.offset()
+			offset := o.offset()
+			branches[b.ID] = branch{offset, offset - 4} // -4 is the length of 0x00 to fill in later
+		case bytecode.BranchCond:
+			b := b.(bytecode.Branch)
+			// Currently everything is just assumed to be a 32 bit displacement
+			// sign extended to 64 bits
+			// TODO: Find the proper way to do this better
+			r1 := resolveReg(b.Reg1)
+			r2 := resolveReg(b.Reg2)
+			cmpReg(r1, r2)
+
+			switch b.Cond {
+			case bytecode.EQ:
+			default:
+				panic(fmt.Sprintf("unknown conditional type for branch conditional: %v", b))
+			}
+			o.add(0x0F, 0x84, 0x00, 0x00, 0x00, 0x00)
+			offset := o.offset()
+			branches[b.ID] = branch{offset, offset - 4} // -4 is the length of 0x00 to fill in later
 		case bytecode.MovImm:
 			i := b.(bytecode.Imm)
 			dst := resolveReg(i.DstReg)
 			movImm(dst, uint32(i.Imm))
 		case bytecode.MovReg:
 			r := b.(bytecode.Reg)
-			dst := resolveReg(r.Dst)
+			dst := resolveReg(r.DstReg)
 			src := resolveReg(r.Reg)
 			movReg(dst, src)
 		case bytecode.MovAddr:
@@ -70,6 +98,16 @@ func Compile(arch Arch, bc []bytecode.Instruction, bssAddr uint64) ([]byte, uint
 				o.add(0x25)
 				o.addImm(uint32(uint64(a.Addr) + bssAddr))
 			*/
+		case bytecode.WriteReg:
+			// mov qword [0xdead], rbx
+			// 48 89 1c 25 ad de 00 00     	mov	qword ptr [57005], rbx
+			r := b.(bytecode.Reg)
+			r1 := resolveReg(r.Reg)
+			o.rex(true, r1.isExt(), false, false)
+			o.add(0x89)
+			o.modrm(0x00, r1.val(), 0x04) // 0x00 = [rax]
+			o.add(0x25)
+			o.addImm(uint32(uint64(r.DstAddr) + bssAddr))
 		case bytecode.WriteImm:
 			// mov qword [0xdeadbe], 0x1234
 			// 48 c7 04 25 be ad de 00 34 12 00 00 	mov	qword ptr [14593470], 4660
@@ -119,18 +157,16 @@ func Compile(arch Arch, bc []bytecode.Instruction, bssAddr uint64) ([]byte, uint
 			o.addImm(imm)
 		case bytecode.AddReg:
 			r := b.(bytecode.Reg)
-			dst := resolveReg(r.Dst)
+			dst := resolveReg(r.DstReg)
 			src := resolveReg(r.Reg)
 			o.rex(true, src.isExt(), false, dst.isExt())
 			o.add(0x01)
 			o.modrm(0x03, src.val(), dst.val())
 		case bytecode.CmpReg:
 			r := b.(bytecode.Reg)
-			dst := resolveReg(r.Dst)
-			src := resolveReg(r.Reg)
-			o.rex(true, src.isExt(), false, dst.isExt())
-			o.add(0x39)
-			o.modrm(0x03, src.val(), dst.val())
+			r1 := resolveReg(r.DstReg)
+			r2 := resolveReg(r.Reg)
+			cmpReg(r1, r2)
 		case bytecode.CmpImm:
 			// TODO: Refactor with AddImm?
 			i := b.(bytecode.Imm)
@@ -210,15 +246,14 @@ func Compile(arch Arch, bc []bytecode.Instruction, bssAddr uint64) ([]byte, uint
 	// Resolve all the jmps
 	for _, b := range bc {
 		switch b.Instruction() {
-		case bytecode.Jmp:
+		case bytecode.Jmp, bytecode.BranchCond:
 			b := b.(bytecode.Branch)
-			offset := branches[b.ID]
-			offsetToWrite := offset - 4 // len of the jmp instruction
-			labelOffset := labels[b.Label]
-			if jmpDiff := uint32(labelOffset - offset); jmpDiff > 0 {
-				o.fill32(offsetToWrite, jmpDiff)
+			br := branches[b.ID]
+			labelOffset := labels[b.JmpTrueLabel]
+			if jmpDiff := uint32(labelOffset - br.offset); jmpDiff > 0 {
+				o.fill32(br.offsetToWrite, jmpDiff)
 			} else {
-				o.fill32(offsetToWrite, 0xffffffff+jmpDiff)
+				o.fill32(br.offsetToWrite, 0xffffffff+jmpDiff)
 			}
 		}
 	}
