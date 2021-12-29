@@ -1,6 +1,17 @@
 global  _main
   section  .text
 _main:
+  push rax
+  pop rax
+  push rsi
+  pop rsi
+  push r10
+  pop r10
+  MOV RCX, [RAX]
+  MOV R12, qword [RAX]
+  MOV R12, qword [RAX]
+  mov [rbx], rcx
+  mov qword [rbx], rcx
   mov qword [0xdead], rbx
   mov rax, 0
   mov rdx, 5

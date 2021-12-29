@@ -89,7 +89,8 @@ func main() {
 			i++
 			continue
 		}
-		codeStart := 30
+		fmt.Printf("%x: ", textAddr+uint64(i))
+		codeStart := 20
 		for j := 0; j < inst.Len; j++ {
 			fmt.Printf("%x ", data[j+i])
 			if data[j+i] >= 0x10 {
@@ -98,11 +99,11 @@ func main() {
 				codeStart -= 2
 			}
 		}
-		i += inst.Len
 		for i := 0; i < codeStart; i++ {
 			fmt.Printf(" ")
 		}
 		fmt.Println(inst)
+		i += inst.Len
 	}
 	if nop > 0 {
 		fmt.Printf("nop: %d\n", nop)

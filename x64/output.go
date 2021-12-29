@@ -52,8 +52,17 @@ func (o *output) rex(operand64Bit, regExt, sibIndexExt, rmExt bool) {
 	o.data = append(o.data, rex)
 }
 
-func (o *output) modrm(mod byte, reg byte, rm byte) {
+type mod byte
+
+const (
+	modMemory      mod = iota // [rax]
+	modMemoryImm8             // [rax + imm8]
+	modMemoryImm32            // [rax + imm32]
+	modVal                    // rax
+)
+
+func (o *output) modrm(mod mod, reg byte, rm byte) {
 	var modrm byte = 0x0
-	modrm |= (rm | (reg << 3) | (mod << 6))
+	modrm |= (rm | (reg << 3) | (byte(mod) << 6))
 	o.data = append(o.data, modrm)
 }

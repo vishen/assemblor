@@ -6,12 +6,12 @@ import (
 	"os"
 
 	"github.com/vishen/assemblor/bytecode"
-	"github.com/vishen/assemblor/ld"
-	"github.com/vishen/assemblor/x64"
+	"github.com/vishen/assemblor/compiler"
 )
 
 var (
 	outputFlag = flag.String("o", "assemblored", "filename to output executable")
+	osFlag     = flag.String("os", "macho", "OS to compile for: macho or linux")
 )
 
 func testGraph() *bytecode.Graph {
@@ -59,43 +59,69 @@ func testGraph() *bytecode.Graph {
 		g.CmpImm(bytecode.Reg10, 0xdeadbee)
 	*/
 
-	g.MovImm(bytecode.Reg1, 0)
-	g.MovImm(bytecode.Reg2, 5)
-	l1 := g.Label()
-	l2 := g.FutureLabel()
-	g.BranchCond(bytecode.Reg1, bytecode.EQ, bytecode.Reg2, l2)
-	g.Inc(bytecode.Reg1)
-	g.Jmp(l1)
+	/*
+		g.MovImm(bytecode.Reg1, 0)
+		g.MovImm(bytecode.Reg2, 5)
+		l1 := g.Label()
+		l2 := g.FutureLabel()
+		g.BranchCond(bytecode.Reg1, bytecode.EQ, bytecode.Reg2, l2)
+		g.Inc(bytecode.Reg1)
+		g.Jmp(l1)
 
-	g.ResolveLabel(l2)
-	g.MovReg(bytecode.Reg10, bytecode.Reg1)
+		g.ResolveLabel(l2)
+		g.MovReg(bytecode.Reg10, bytecode.Reg1)
 
-	g.AddImm(bytecode.Reg1, 48)     // Turn into ascii number
-	addr := g.ReserveBytes(1 * 32)  // Reserve data: [1]int32
-	g.WriteReg(addr, bytecode.Reg1) // Move ascii code in reg1 to addr
+		g.AddImm(bytecode.Reg1, 48)     // Turn into ascii number
+		addr := g.ReserveBytes(1 * 32)  // Reserve data: [1]int32
+		g.WriteReg(addr, bytecode.Reg1) // Move ascii code in reg1 to addr
 
-	g.MovAddr(bytecode.Reg1, addr) // Move the addr to reg1
+		g.MovAddr(bytecode.Reg1, addr) // Move the addr to reg1
 
-	g.MovImm(bytecode.Reg2, 1) // Length to print
+		g.MovImm(bytecode.Reg2, 1) // Length to print
+		g.SyscallWrite(bytecode.Reg1, bytecode.Reg2)
+
+		g.SyscallExit(bytecode.Reg10) // Should be what started in reg2
+	*/
+
+	d1 := g.ReserveBytes(5) // [5]byte
+	g.MovAddr(bytecode.Reg1, d1)
+
+	for _, c := range "Hello" {
+		g.MovImm(bytecode.Reg2, bytecode.ImmType(c))
+		g.WriteRegToMem(bytecode.Reg1, bytecode.Reg2)
+		g.AddImm(bytecode.Reg1, 1)
+	}
+
+	g.MovAddr(bytecode.Reg1, d1)
+	g.MovImm(bytecode.Reg2, 5) // len
 	g.SyscallWrite(bytecode.Reg1, bytecode.Reg2)
 
-	g.SyscallExit(bytecode.Reg10) // Should be what started in reg2
+	g.MovImm(bytecode.Reg10, 0)
+	g.SyscallExit(bytecode.Reg10)
 
 	return g
 }
 
 func main() {
+	flag.Parse()
+
 	g := testGraph()
-	g.Print()
+	// g.Print()
 
 	bc, err := g.Bytecode()
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	linker := ld.NewMacho()
-	code, bssSize := x64.Compile(x64.Macho, bc, linker.BssAddr())
-	executable := linker.Link(code, bssSize)
+	log.Printf("Compiling for %s_x64", *osFlag)
+	executable, err := compiler.CompileWithOptions(
+		bc,
+		compiler.TargetOS(*osFlag),
+		compiler.X64,
+	)
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	log.Printf("Writing executable to %s", *outputFlag)
 	if err := os.WriteFile(*outputFlag, executable, 0755); err != nil {

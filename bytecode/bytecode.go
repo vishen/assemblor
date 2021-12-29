@@ -13,7 +13,8 @@ type ImmType uint32
 type RegType int
 
 const (
-	Reg1 RegType = iota
+	RegUnknown RegType = iota
+	Reg1
 	Reg2
 	Reg3
 	Reg4
@@ -54,31 +55,46 @@ func (r RegType) String() string {
 	case Reg12:
 		return "Reg12"
 	}
-	return fmt.Sprintf("unknown register %d", r)
+	return "none"
 }
 
 type ConditionalType int
 
 const (
-	EQ ConditionalType = iota
+	UnknownConditional ConditionalType = iota
+	EQ
+	NEQ
 )
+
+func (c ConditionalType) String() string {
+	switch c {
+	case EQ:
+		return "=="
+	case NEQ:
+		return "!="
+	}
+	return "none"
+}
 
 type InstructionType int
 
 const (
 	Invalid InstructionType = iota
 	Nop
-	MovImm
-	MovReg
-	MovAddr
-	WriteImm
-	WriteReg
-	Inc
-	Dec
-	AddImm
-	AddReg
-	CmpImm
-	CmpReg
+	MovImm         // move imm -> reg
+	MovReg         // move reg -> reg
+	MovAddr        // move addr -> reg
+	MovMem         // move [reg] -> reg
+	WriteImm       // write imm -> addr
+	WriteRegToAddr // write reg -> addr
+	WriteRegToMem  // write reg -> [reg]
+	Inc            // increment reg
+	Dec            // decrement reg
+	SubImm         // sub imm -> reg
+	AddImm         // add imm -> reg
+	AddReg         // add reg -> reg
+	CmpImm         // cmp imm -> reg
+	CmpReg         // cmp reg -> reg
 	Jmp
 	BranchCond
 	Label
@@ -99,14 +115,20 @@ func (i InstructionType) String() string {
 		return "MovReg"
 	case MovAddr:
 		return "MovAddr"
+	case MovMem:
+		return "MovMem"
 	case WriteImm:
 		return "WriteImm"
-	case WriteReg:
-		return "WriteReg"
+	case WriteRegToMem:
+		return "WriteRegToMem"
+	case WriteRegToAddr:
+		return "WriteRegToAddr"
 	case Inc:
 		return "Inc"
 	case Dec:
 		return "Dec"
+	case SubImm:
+		return "SubImm"
 	case AddImm:
 		return "AddImm"
 	case AddReg:
@@ -128,7 +150,7 @@ func (i InstructionType) String() string {
 	case ReserveBytes:
 		return "ReserveBytes"
 	}
-	return fmt.Sprintf("Unknown(%d)", i)
+	return "none"
 }
 
 type Instruction interface {
@@ -145,31 +167,40 @@ func (l LabelType) String() string {
 	return fmt.Sprintf("Label %d", l)
 }
 
-type Imm struct {
-	Inst    InstructionType
+type Inst struct {
+	inst InstructionType
+
 	DstReg  RegType
 	DstAddr AddrType
-	Imm     ImmType
-}
+	DstMem  RegType
 
-func (b Imm) Instruction() InstructionType { return b.Inst }
-
-type Reg struct {
-	Inst    InstructionType
-	DstReg  RegType
-	DstAddr AddrType
-	Reg     RegType
-}
-
-func (b Reg) Instruction() InstructionType { return b.Inst }
-
-type Addr struct {
-	Inst InstructionType
-	Dst  RegType
+	Imm  ImmType
+	Reg  RegType
 	Addr AddrType
+	Mem  RegType
 }
 
-func (b Addr) Instruction() InstructionType { return b.Inst }
+func (i Inst) String() string {
+	switch it := i.Instruction(); it {
+	case MovImm, AddImm:
+		return fmt.Sprintf("%v %v %v", it, i.DstReg, i.Imm)
+	case MovReg, Inc, Dec, AddReg:
+		return fmt.Sprintf("%v %v %v", it, i.DstReg, i.Reg)
+	case MovAddr:
+		return fmt.Sprintf("%v %v %v", it, i.DstReg, i.Addr)
+	case MovMem:
+		return fmt.Sprintf("%v %v %v", it, i.DstReg, i.Mem)
+	case WriteImm:
+		return fmt.Sprintf("%v %v %v", it, i.DstAddr, i.Imm)
+	case WriteRegToAddr:
+		return fmt.Sprintf("%v %v %v", it, i.DstAddr, i.Reg)
+	case WriteRegToMem:
+		return fmt.Sprintf("%v %v %v", it, i.Mem, i.Reg)
+	}
+	return fmt.Sprintf("%v: dst_reg=%v dst_addr=%v dst_mem=%v | imm=%v reg=%v addr=%v mem=%v", i.inst, i.DstReg, i.DstAddr, i.DstMem, i.Imm, i.Reg, i.Addr, i.Mem)
+}
+
+func (i Inst) Instruction() InstructionType { return i.inst }
 
 type Branch struct {
 	ID           int
@@ -178,6 +209,15 @@ type Branch struct {
 	Cond         ConditionalType
 	Reg2         RegType
 	JmpTrueLabel LabelType
+}
+
+func (b Branch) String() string {
+	// TODO: Do this better
+	// For 'jmp' and non-conditional branches
+	if b.Reg1 == 0 {
+		return fmt.Sprintf("%v (%d): %v", b.Inst, b.ID, b.JmpTrueLabel)
+	}
+	return fmt.Sprintf("%v (%d): %v %v %v -> %v", b.Inst, b.ID, b.Reg1, b.Cond, b.Reg2, b.JmpTrueLabel)
 }
 
 func (b Branch) Instruction() InstructionType { return b.Inst }

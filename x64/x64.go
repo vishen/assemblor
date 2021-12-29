@@ -19,20 +19,38 @@ func Compile(arch Arch, bc []bytecode.Instruction, bssAddr uint64) ([]byte, uint
 	movReg := func(dst, src reg) {
 		o.rex(true, src.isExt(), false, dst.isExt())
 		o.add(0x89)
-		o.modrm(0x03, src.val(), dst.val())
+		o.modrm(modVal, src.val(), dst.val())
 	}
 
 	movImm := func(dst reg, imm uint32) {
 		o.rex(true, false, false, dst.isExt())
 		o.add(0xC7)
-		o.modrm(0x03, 0, dst.val())
+		o.modrm(modVal, 0, dst.val())
 		o.addImm(imm)
 	}
 
 	cmpReg := func(r1, r2 reg) {
 		o.rex(true, r2.isExt(), false, r1.isExt())
 		o.add(0x39)
-		o.modrm(0x03, r2.val(), r1.val())
+		o.modrm(modVal, r2.val(), r1.val())
+	}
+
+	pushReg := func(rs ...reg) {
+		for _, r1 := range rs {
+			if r1.isExt() {
+				o.add(0x41)
+			}
+			o.add(0x50 + r1.val())
+		}
+	}
+
+	popReg := func(rs ...reg) {
+		for _, r1 := range rs {
+			if r1.isExt() {
+				o.add(0x41)
+			}
+			o.add(0x58 + r1.val())
+		}
 	}
 
 	bssSize := uint64(0)
@@ -69,72 +87,98 @@ func Compile(arch Arch, bc []bytecode.Instruction, bssAddr uint64) ([]byte, uint
 			r2 := resolveReg(b.Reg2)
 			cmpReg(r1, r2)
 
+			var opcode byte
 			switch b.Cond {
 			case bytecode.EQ:
+				opcode = 0x84
+			case bytecode.NEQ:
+				opcode = 0x85
 			default:
 				panic(fmt.Sprintf("unknown conditional type for branch conditional: %v", b))
 			}
-			o.add(0x0F, 0x84, 0x00, 0x00, 0x00, 0x00)
+			o.add(0x0F, opcode, 0x00, 0x00, 0x00, 0x00)
 			offset := o.offset()
 			branches[b.ID] = branch{offset, offset - 4} // -4 is the length of 0x00 to fill in later
 		case bytecode.MovImm:
-			i := b.(bytecode.Imm)
+			i := b.(bytecode.Inst)
 			dst := resolveReg(i.DstReg)
 			movImm(dst, uint32(i.Imm))
 		case bytecode.MovReg:
-			r := b.(bytecode.Reg)
-			dst := resolveReg(r.DstReg)
-			src := resolveReg(r.Reg)
+			i := b.(bytecode.Inst)
+			dst := resolveReg(i.DstReg)
+			src := resolveReg(i.Reg)
 			movReg(dst, src)
 		case bytecode.MovAddr:
-			a := b.(bytecode.Addr)
-			dst := resolveReg(a.Dst)
-			movImm(dst, uint32(uint64(a.Addr)+bssAddr))
-			/*
-				// TODO: This does a mov from memory into register, will be useful at some point
-				o.rex(true, dst.isExt(), false, false)
-				o.add(0x8b)
-				o.modrm(0x00, dst.val(), 0x04)
-				o.add(0x25)
-				o.addImm(uint32(uint64(a.Addr) + bssAddr))
-			*/
-		case bytecode.WriteReg:
+			i := b.(bytecode.Inst)
+			dst := resolveReg(i.DstReg)
+			movImm(dst, uint32(uint64(i.Addr)+bssAddr))
+		case bytecode.MovMem:
+			// 48 8b 0b                    	mov	rcx, qword ptr [rbx]
+			// 48 8b 08                    	mov	rcx, qword ptr [rax]
+			i := b.(bytecode.Inst)
+			dst := resolveReg(i.DstReg)
+			src := resolveReg(i.Mem)
+			o.rex(true, dst.isExt(), false, src.isExt())
+			o.add(0x8b)
+			o.modrm(modMemory, dst.val(), src.val())
+		case bytecode.WriteRegToAddr:
 			// mov qword [0xdead], rbx
 			// 48 89 1c 25 ad de 00 00     	mov	qword ptr [57005], rbx
-			r := b.(bytecode.Reg)
-			r1 := resolveReg(r.Reg)
+			i := b.(bytecode.Inst)
+			r1 := resolveReg(i.Reg)
 			o.rex(true, r1.isExt(), false, false)
 			o.add(0x89)
-			o.modrm(0x00, r1.val(), 0x04) // 0x00 = [rax]
+			o.modrm(modMemory, r1.val(), 0x04) // 0x00 = [rax]
 			o.add(0x25)
-			o.addImm(uint32(uint64(r.DstAddr) + bssAddr))
+			o.addImm(uint32(uint64(i.DstAddr) + bssAddr))
+		case bytecode.WriteRegToMem:
+			// mov [rbx], rcx
+			// 48 89 0b                    	mov	qword ptr [rbx], rcx
+			i := b.(bytecode.Inst)
+			r1 := resolveReg(i.DstMem)
+			r2 := resolveReg(i.Reg)
+			o.rex(true, r2.isExt(), false, r1.isExt())
+			o.add(0x89)
+			o.modrm(modMemory, r2.val(), r1.val()) // 0x00 = [rax]
 		case bytecode.WriteImm:
 			// mov qword [0xdeadbe], 0x1234
 			// 48 c7 04 25 be ad de 00 34 12 00 00 	mov	qword ptr [14593470], 4660
-			i := b.(bytecode.Imm)
+			i := b.(bytecode.Inst)
 			o.rex(true, false, false, false)
 			o.add(0xC7)
-			o.modrm(0x00, 0x00, 0x04)
+			o.modrm(modMemory, 0x00, 0x04)
 			o.add(0x25)
 			o.addImm(uint32(uint64(i.DstAddr) + bssAddr))
 			o.addImm(uint32(i.Imm))
 		case bytecode.Inc:
-			r := b.(bytecode.Imm)
-			dst := resolveReg(r.DstReg)
+			i := b.(bytecode.Inst)
+			dst := resolveReg(i.DstReg)
 			o.rex(true, false, false, dst.isExt())
 			o.add(0xFF)
-			o.modrm(0x03, 0, dst.val())
+			o.modrm(modVal, 0, dst.val())
 		case bytecode.Dec:
-			r := b.(bytecode.Imm)
-			dst := resolveReg(r.DstReg)
+			i := b.(bytecode.Inst)
+			dst := resolveReg(i.DstReg)
 			o.rex(true, false, false, dst.isExt())
 			o.add(0xFF)
-			o.modrm(0x03, 0x01, dst.val())
-		case bytecode.AddImm:
-			i := b.(bytecode.Imm)
+			o.modrm(modVal, 0x01, dst.val())
+		case bytecode.SubImm:
+			i := b.(bytecode.Inst)
 			dst := resolveReg(i.DstReg)
 			imm := uint32(i.Imm)
-
+			o.rex(true, false, false, dst.isExt())
+			if dst == rax && imm >= 128 {
+				o.add(0x2d)
+			} else {
+				o.add(0x81)
+				o.modrm(modVal, 0x05, dst.val())
+			}
+			o.addImm(imm)
+		case bytecode.AddImm:
+			i := b.(bytecode.Inst)
+			dst := resolveReg(i.DstReg)
+			imm := uint32(i.Imm)
+			o.rex(true, false, false, dst.isExt())
 			// NOTE: dst == RAX and imm == 32-bit, then special case
 			if dst == rax && imm >= 128 {
 				// REX.W + 05 id	ADD RAX, imm32
@@ -152,24 +196,24 @@ func Compile(arch Arch, bc []bytecode.Instruction, bssAddr uint64) ([]byte, uint
 					}
 				*/
 				o.add(0x81)
-				o.modrm(0x03, 0, dst.val())
+				o.modrm(modVal, 0, dst.val())
 			}
 			o.addImm(imm)
 		case bytecode.AddReg:
-			r := b.(bytecode.Reg)
-			dst := resolveReg(r.DstReg)
-			src := resolveReg(r.Reg)
+			i := b.(bytecode.Inst)
+			dst := resolveReg(i.DstReg)
+			src := resolveReg(i.Reg)
 			o.rex(true, src.isExt(), false, dst.isExt())
 			o.add(0x01)
-			o.modrm(0x03, src.val(), dst.val())
+			o.modrm(modVal, src.val(), dst.val())
 		case bytecode.CmpReg:
-			r := b.(bytecode.Reg)
-			r1 := resolveReg(r.DstReg)
-			r2 := resolveReg(r.Reg)
+			i := b.(bytecode.Inst)
+			r1 := resolveReg(i.DstReg)
+			r2 := resolveReg(i.Reg)
 			cmpReg(r1, r2)
 		case bytecode.CmpImm:
 			// TODO: Refactor with AddImm?
-			i := b.(bytecode.Imm)
+			i := b.(bytecode.Inst)
 			dst := resolveReg(i.DstReg)
 			imm := uint32(i.Imm)
 
@@ -180,44 +224,36 @@ func Compile(arch Arch, bc []bytecode.Instruction, bssAddr uint64) ([]byte, uint
 				o.add(0x3d)
 			} else {
 				o.add(0x81)
-				o.modrm(0x03, 0x07, dst.val())
+				o.modrm(modVal, 0x07, dst.val())
 			}
 			o.addImm(imm)
 		case bytecode.SyscallExit:
 			s := b.(bytecode.Syscall)
 			switch arch {
 			case Linux:
-				// TODO: Move MovImm into a function to consolidate with bytecode.MovImm?
-				/*
-					// TODO: Make work on linux
-					{
-						src := rax
-						o.rex(true, false, false, src.isExt())
-						o.add(0xC7)
-						o.modrm(0x03, 0, src.val())
-						o.addImm(1)
-					}
-					{
-						src := rbx
-						o.rex(true, false, false, src.isExt())
-						o.add(0xC7)
-						o.modrm(0x03, 0, src.val())
-						o.addImm(s.Arg1)
-					}
-					// Syscall
-					o.add(0xcd, 0x80)
-				*/
+				movReg(rbx, resolveReg(s.Reg1))
+				movImm(rax, 0x01)
+				o.add(0xcd, 0x80)
 			case Macho:
 				movReg(rdi, resolveReg(s.Reg1))
 				movImm(rax, 0x02000001)
-				// Syscall
 				o.add(0x0f, 0x05)
 			}
 		case bytecode.SyscallWrite:
 			s := b.(bytecode.Syscall)
 			switch arch {
 			case Linux:
-				// TODO:
+				// https://docs.microsoft.com/en-us/cpp/build/x64-software-conventions?view=msvc-170#register-usage
+				// r10 and r11 are volatile and used by the syscall function
+				pushReg(rcx, rdx, rax, rbx, r10, r11)
+
+				movReg(rcx, resolveReg(s.Reg1)) // ptr
+				movReg(rdx, resolveReg(s.Reg2)) // length
+				movImm(rax, 0x04)               // sys_write
+				movImm(rbx, 0x01)               // stdout
+				o.add(0xcd, 0x80)
+
+				popReg(r11, r10, rbx, rax, rdx, rcx)
 			case Macho:
 				/*
 					1   mov    rax, 0x02000004    ; system call for write
@@ -227,12 +263,16 @@ func Compile(arch Arch, bc []bytecode.Instruction, bssAddr uint64) ([]byte, uint
 					5   syscall                   ; execute syscall (write)
 				*/
 
+				// https://docs.microsoft.com/en-us/cpp/build/x64-software-conventions?view=msvc-170#register-usage
+				pushReg(rsi, rdx, rax, rdi, r10, r11)
+
 				movReg(rsi, resolveReg(s.Reg1))
 				movReg(rdx, resolveReg(s.Reg2))
 				movImm(rax, 0x02000004)
 				movImm(rdi, 0x01)
-				// Syscall
 				o.add(0x0f, 0x05)
+
+				popReg(r11, r10, rdi, rax, rdx, rsi)
 			}
 		case bytecode.ReserveBytes:
 			r := b.(bytecode.Data)

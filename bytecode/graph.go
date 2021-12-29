@@ -37,70 +37,94 @@ func (g *Graph) Bytecode() ([]Instruction, error) {
 }
 
 func (g *Graph) WriteImm(a AddrType, i ImmType) {
-	g.inst = append(g.inst, Imm{
-		Inst:    WriteImm,
+	g.inst = append(g.inst, Inst{
+		inst:    WriteImm,
 		DstAddr: a,
 		Imm:     i,
 	})
 }
 
-func (g *Graph) WriteReg(a AddrType, r RegType) {
-	g.inst = append(g.inst, Reg{
-		Inst:    WriteReg,
+func (g *Graph) WriteRegToAddr(a AddrType, r RegType) {
+	g.inst = append(g.inst, Inst{
+		inst:    WriteRegToAddr,
 		DstAddr: a,
 		Reg:     r,
 	})
 }
 
+func (g *Graph) WriteRegToMem(mem RegType, r RegType) {
+	g.inst = append(g.inst, Inst{
+		inst:   WriteRegToMem,
+		DstMem: mem,
+		Reg:    r,
+	})
+}
+
 func (g *Graph) MovImm(r RegType, i ImmType) {
-	g.inst = append(g.inst, Imm{
-		Inst:   MovImm,
+	g.inst = append(g.inst, Inst{
+		inst:   MovImm,
 		DstReg: r,
 		Imm:    i,
 	})
 }
 
 func (g *Graph) MovAddr(r RegType, a AddrType) {
-	g.inst = append(g.inst, Addr{
-		Inst: MovAddr,
-		Dst:  r,
-		Addr: a,
+	g.inst = append(g.inst, Inst{
+		inst:   MovAddr,
+		DstReg: r,
+		Addr:   a,
 	})
 }
 
 func (g *Graph) MovReg(r RegType, r2 RegType) {
-	g.inst = append(g.inst, Reg{
-		Inst:   MovReg,
+	g.inst = append(g.inst, Inst{
+		inst:   MovReg,
 		DstReg: r,
 		Reg:    r2,
 	})
 }
 
+func (g *Graph) MovMem(r RegType, mem RegType) {
+	g.inst = append(g.inst, Inst{
+		inst:   MovMem,
+		DstReg: r,
+		Mem:    mem,
+	})
+}
+
 func (g *Graph) Inc(r RegType) {
-	g.inst = append(g.inst, Imm{
-		Inst:   Inc,
+	g.inst = append(g.inst, Inst{
+		inst:   Inc,
 		DstReg: r,
 	})
 }
 
 func (g *Graph) Dec(r RegType) {
-	g.inst = append(g.inst, Imm{
-		Inst:   Dec,
+	g.inst = append(g.inst, Inst{
+		inst:   Dec,
 		DstReg: r,
 	})
 }
 
+func (g *Graph) SubImm(r RegType, i ImmType) {
+	g.inst = append(g.inst, Inst{
+		inst:   SubImm,
+		DstReg: r,
+		Imm:    i,
+	})
+}
+
 func (g *Graph) AddImm(r RegType, i ImmType) {
-	g.inst = append(g.inst, Imm{
-		Inst:   AddImm,
+	g.inst = append(g.inst, Inst{
+		inst:   AddImm,
 		DstReg: r,
 		Imm:    i,
 	})
 }
 
 func (g *Graph) AddReg(r RegType, r2 RegType) {
-	g.inst = append(g.inst, Reg{
-		Inst:   AddReg,
+	g.inst = append(g.inst, Inst{
+		inst:   AddReg,
 		DstReg: r,
 		Reg:    r2,
 	})
@@ -123,16 +147,16 @@ func (g *Graph) ResolveLabel(l LabelType) {
 }
 
 func (g *Graph) CmpImm(r RegType, i ImmType) {
-	g.inst = append(g.inst, Imm{
-		Inst:   CmpImm,
+	g.inst = append(g.inst, Inst{
+		inst:   CmpImm,
 		DstReg: r,
 		Imm:    i,
 	})
 }
 
 func (g *Graph) CmpReg(r RegType, r2 RegType) {
-	g.inst = append(g.inst, Reg{
-		Inst:   CmpReg,
+	g.inst = append(g.inst, Inst{
+		inst:   CmpReg,
 		DstReg: r,
 		Reg:    r2,
 	})

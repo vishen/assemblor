@@ -1,2 +1,5 @@
 assemblored
 *.o
+.bash_history
+.cache
+.vagrant

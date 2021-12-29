@@ -1,6 +1,6 @@
 package ld
 
 type Linker interface {
-	BssAddr() uint32
-	Link() []byte
+	BssAddr() uint64
+	Link(code []byte, bssSize uint64) []byte
 }
