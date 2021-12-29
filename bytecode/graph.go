@@ -146,6 +146,27 @@ func (g *Graph) ResolveLabel(l LabelType) {
 	g.inst = append(g.inst, l)
 }
 
+func (g *Graph) PushImm(i ImmType) {
+	g.inst = append(g.inst, Inst{
+		inst: PushImm,
+		Imm:  i,
+	})
+}
+
+func (g *Graph) PushReg(r RegType) {
+	g.inst = append(g.inst, Inst{
+		inst: PushReg,
+		Reg:  r,
+	})
+}
+
+func (g *Graph) PopReg(r RegType) {
+	g.inst = append(g.inst, Inst{
+		inst: PopReg,
+		Reg:  r,
+	})
+}
+
 func (g *Graph) CmpImm(r RegType, i ImmType) {
 	g.inst = append(g.inst, Inst{
 		inst:   CmpImm,

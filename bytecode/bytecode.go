@@ -10,148 +10,61 @@ func (a AddrType) Offset(offset int) AddrType {
 
 type ImmType uint32
 
-type RegType int
+type RegType string
 
 const (
-	RegUnknown RegType = iota
-	Reg1
-	Reg2
-	Reg3
-	Reg4
-	Reg5
-	Reg6
-	Reg7
-	Reg8
-	Reg9
-	Reg10
-	Reg11
-	Reg12
+	RegUnknown RegType = "RegUnknown"
+	Reg1       RegType = "Reg1"
+	Reg2       RegType = "Reg2"
+	Reg3       RegType = "Reg3"
+	Reg4       RegType = "Reg4"
+	Reg5       RegType = "Reg5"
+	Reg6       RegType = "Reg6"
+	Reg7       RegType = "Reg7"
+	Reg8       RegType = "Reg8"
+	Reg9       RegType = "Reg9"
+	Reg10      RegType = "Reg10"
+	Reg11      RegType = "Reg11"
+	Reg12      RegType = "Reg12"
 )
 
-func (r RegType) String() string {
-	switch r {
-	case Reg1:
-		return "Reg1"
-	case Reg2:
-		return "Reg2"
-	case Reg3:
-		return "Reg3"
-	case Reg4:
-		return "Reg4"
-	case Reg5:
-		return "Reg5"
-	case Reg6:
-		return "Reg6"
-	case Reg7:
-		return "Reg7"
-	case Reg8:
-		return "Reg8"
-	case Reg9:
-		return "Reg9"
-	case Reg10:
-		return "Reg10"
-	case Reg11:
-		return "Reg11"
-	case Reg12:
-		return "Reg12"
-	}
-	return "none"
-}
-
-type ConditionalType int
+type ConditionalType string
 
 const (
-	UnknownConditional ConditionalType = iota
-	EQ
-	NEQ
+	UnknownConditional ConditionalType = "UnknownConditional"
+	EQ                 ConditionalType = "EQ"
+	NEQ                ConditionalType = "NEQ"
 )
 
-func (c ConditionalType) String() string {
-	switch c {
-	case EQ:
-		return "=="
-	case NEQ:
-		return "!="
-	}
-	return "none"
-}
-
-type InstructionType int
+type InstructionType string
 
 const (
-	Invalid InstructionType = iota
-	Nop
-	MovImm         // move imm -> reg
-	MovReg         // move reg -> reg
-	MovAddr        // move addr -> reg
-	MovMem         // move [reg] -> reg
-	WriteImm       // write imm -> addr
-	WriteRegToAddr // write reg -> addr
-	WriteRegToMem  // write reg -> [reg]
-	Inc            // increment reg
-	Dec            // decrement reg
-	SubImm         // sub imm -> reg
-	AddImm         // add imm -> reg
-	AddReg         // add reg -> reg
-	CmpImm         // cmp imm -> reg
-	CmpReg         // cmp reg -> reg
-	Jmp
-	BranchCond
-	Label
-	SyscallExit
-	SyscallWrite
-	ReserveBytes
+	Invalid        InstructionType = "Invalid"
+	Nop            InstructionType = "Nop"
+	MovImm         InstructionType = "MovImm"         // move imm -> reg
+	MovReg         InstructionType = "MovReg"         // move reg -> reg
+	MovAddr        InstructionType = "MovAddr"        // move addr -> reg
+	MovMem         InstructionType = "MovMen"         // move [reg] -> reg
+	WriteImm       InstructionType = "WriteImm"       // write imm -> addr
+	WriteRegToAddr InstructionType = "WriteRegToAddr" // write reg -> addr
+	WriteRegToMem  InstructionType = "WriteRegToMem"  // write reg -> [reg]
+	Inc            InstructionType = "Inc"            // increment reg
+	Dec            InstructionType = "Dec"            // decrement reg
+	SubImm         InstructionType = "SubImm"         // sub imm -> reg
+	AddImm         InstructionType = "AddImm"         // add imm -> reg
+	AddReg         InstructionType = "AddReg"         // add reg -> reg
+	CmpImm         InstructionType = "CmpImm"         // cmp imm -> reg
+	CmpReg         InstructionType = "CmpReg"         // cmp reg -> reg
+	Jmp            InstructionType = "Jmp"
+	BranchCond     InstructionType = "BrandCond"
+	Label          InstructionType = "Label"
+	PushImm        InstructionType = "PushImm"
+	PushReg        InstructionType = "PushReg"
+	PopReg         InstructionType = "PopReg"
+	SyscallExit    InstructionType = "SyscallExit"
+	SyscallWrite   InstructionType = "SyscallWrite"
+	ReserveBytes   InstructionType = "ReserveBytes"
 )
-
-func (i InstructionType) String() string {
-	switch i {
-	case Invalid:
-		return "Invalid"
-	case Nop:
-		return "Nop"
-	case MovImm:
-		return "MovImm"
-	case MovReg:
-		return "MovReg"
-	case MovAddr:
-		return "MovAddr"
-	case MovMem:
-		return "MovMem"
-	case WriteImm:
-		return "WriteImm"
-	case WriteRegToMem:
-		return "WriteRegToMem"
-	case WriteRegToAddr:
-		return "WriteRegToAddr"
-	case Inc:
-		return "Inc"
-	case Dec:
-		return "Dec"
-	case SubImm:
-		return "SubImm"
-	case AddImm:
-		return "AddImm"
-	case AddReg:
-		return "AddReg"
-	case CmpImm:
-		return "CmpImm"
-	case CmpReg:
-		return "CmpReg"
-	case Jmp:
-		return "Jmp"
-	case BranchCond:
-		return "BranchCond"
-	case Label:
-		return "Label"
-	case SyscallExit:
-		return "SyscallExit"
-	case SyscallWrite:
-		return "SyscallWrite"
-	case ReserveBytes:
-		return "ReserveBytes"
-	}
-	return "none"
-}
 
 type Instruction interface {
 	Instruction() InstructionType
@@ -214,7 +127,7 @@ type Branch struct {
 func (b Branch) String() string {
 	// TODO: Do this better
 	// For 'jmp' and non-conditional branches
-	if b.Reg1 == 0 {
+	if b.Reg1 == RegUnknown {
 		return fmt.Sprintf("%v (%d): %v", b.Inst, b.ID, b.JmpTrueLabel)
 	}
 	return fmt.Sprintf("%v (%d): %v %v %v -> %v", b.Inst, b.ID, b.Reg1, b.Cond, b.Reg2, b.JmpTrueLabel)

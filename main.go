@@ -92,6 +92,10 @@ func testGraph() *bytecode.Graph {
 		g.AddImm(bytecode.Reg1, 1)
 	}
 
+	g.PushImm(0x1234)
+	g.PushReg(bytecode.Reg12)
+	g.PopReg(bytecode.Reg9)
+
 	g.MovAddr(bytecode.Reg1, d1)
 	g.MovImm(bytecode.Reg2, 5) // len
 	g.SyscallWrite(bytecode.Reg1, bytecode.Reg2)

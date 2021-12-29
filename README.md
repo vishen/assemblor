@@ -4,6 +4,7 @@
 
 - https://defuse.ca/online-x86-assembler.htm#disassembly
 - https://uica.uops.info/
+- https://www.felixcloutier.com/x86/
 
 ### Macho-o
 

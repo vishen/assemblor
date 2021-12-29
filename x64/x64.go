@@ -227,6 +227,18 @@ func Compile(arch Arch, bc []bytecode.Instruction, bssAddr uint64) ([]byte, uint
 				o.modrm(modVal, 0x07, dst.val())
 			}
 			o.addImm(imm)
+		case bytecode.PushImm:
+			i := b.(bytecode.Inst)
+			o.add(0x68)
+			o.addImm(uint32(i.Imm))
+		case bytecode.PushReg:
+			i := b.(bytecode.Inst)
+			src := resolveReg(i.Reg)
+			pushReg(src)
+		case bytecode.PopReg:
+			i := b.(bytecode.Inst)
+			src := resolveReg(i.Reg)
+			popReg(src)
 		case bytecode.SyscallExit:
 			s := b.(bytecode.Syscall)
 			switch arch {
