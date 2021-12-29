@@ -1,4 +1,29 @@
+# Assemblor
+
+- Experimental for fun and learning
+- X64 macho and ELF executable
+- cross compile
+- limited bytecode instruction set
+- assemble and link in one command
+- static binary
+
+## Missing
+
+- static data
+- functions
+- other syscalls?
+
+## Future features
+
+- register allocation
+- debug information
+
+
 ## Resources
+
+### Syscalls
+
+- https://en.wikipedia.org/wiki/X86_calling_conventions#System_V_AMD64_ABI
 
 ### X64
 
@@ -6,7 +31,11 @@
 - https://uica.uops.info/
 - https://www.felixcloutier.com/x86/
 
-### Macho-o
+### Linux
+
+- https://blog.rchapman.org/posts/Linux_System_Call_Table_for_x86_64/
+
+### Macho
 
 - https://stackoverflow.com/questions/32453849/minimal-mach-o-64-binary/32659692#32659692
 - https://stackoverflow.com/questions/39863112/what-is-required-for-a-mach-o-executable-to-load
@@ -20,3 +49,8 @@
 ### lldb
 
 - https://lldb.llvm.org/use/map.html
+
+### Other
+
+- https://docs.microsoft.com/en-us/cpp/build/x64-software-conventions?view=msvc-170#register-usage
+

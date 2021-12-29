@@ -140,9 +140,6 @@ func main() {
 		log.Fatalf("unbalanced []: %d opened, %d closed\n", loopsCounter, loopsFinished)
 	}
 
-	// Print bytecode graph
-	g.Print()
-
 	bc, err := g.Bytecode()
 	if err != nil {
 		log.Fatalf("unable to generate bytecode: %v", err)

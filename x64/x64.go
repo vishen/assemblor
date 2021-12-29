@@ -255,9 +255,8 @@ func Compile(arch Arch, bc []bytecode.Instruction, bssAddr uint64) ([]byte, uint
 			s := b.(bytecode.Syscall)
 			switch arch {
 			case Linux:
-				// https://docs.microsoft.com/en-us/cpp/build/x64-software-conventions?view=msvc-170#register-usage
-				// r10 and r11 are volatile and used by the syscall function
-				pushReg(rcx, rdx, rax, rbx, r10, r11)
+				// https://stackoverflow.com/questions/2535989/what-are-the-calling-conventions-for-unix-linux-system-calls-and-user-space-f
+				pushReg(rcx, rdx, rax, rbx, rdi, rsi, r8, r9, r10, r11)
 
 				movReg(rcx, resolveReg(s.Reg1)) // ptr
 				movReg(rdx, resolveReg(s.Reg2)) // length
@@ -265,7 +264,7 @@ func Compile(arch Arch, bc []bytecode.Instruction, bssAddr uint64) ([]byte, uint
 				movImm(rbx, 0x01)               // stdout
 				o.add(0xcd, 0x80)
 
-				popReg(r11, r10, rbx, rax, rdx, rcx)
+				popReg(r11, r10, r9, r8, rsi, rdi, rbx, rax, rdx, rcx)
 			case Macho:
 				/*
 					1   mov    rax, 0x02000004    ; system call for write
@@ -275,8 +274,7 @@ func Compile(arch Arch, bc []bytecode.Instruction, bssAddr uint64) ([]byte, uint
 					5   syscall                   ; execute syscall (write)
 				*/
 
-				// https://docs.microsoft.com/en-us/cpp/build/x64-software-conventions?view=msvc-170#register-usage
-				pushReg(rsi, rdx, rax, rdi, r10, r11)
+				pushReg(rcx, rdx, rax, rbx, rdi, rsi, r8, r9, r10, r11)
 
 				movReg(rsi, resolveReg(s.Reg1))
 				movReg(rdx, resolveReg(s.Reg2))
@@ -284,7 +282,7 @@ func Compile(arch Arch, bc []bytecode.Instruction, bssAddr uint64) ([]byte, uint
 				movImm(rdi, 0x01)
 				o.add(0x0f, 0x05)
 
-				popReg(r11, r10, rdi, rax, rdx, rsi)
+				popReg(r11, r10, r9, r8, rsi, rdi, rbx, rax, rdx, rcx)
 			}
 		case bytecode.ReserveBytes:
 			r := b.(bytecode.Data)
