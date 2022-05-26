@@ -8,7 +8,8 @@ type Graph struct {
 	labeln  int
 	branchn int
 
-	dataSize uint32
+	dataSize       uint32
+	staticDataSize uint32
 }
 
 func NewGraph() *Graph {
@@ -211,6 +212,17 @@ func (g *Graph) ReserveBytes(size uint32) AddrType {
 	bssSize := g.dataSize
 	g.dataSize += size
 	return AddrType(bssSize)
+}
+
+func (g *Graph) StaticData(data []byte) StaticDataType {
+	g.inst = append(g.inst, Data{
+		Inst: StaticData,
+		Data: data,
+	})
+
+	sz := g.staticDataSize
+	g.staticDataSize += uint32(len(data))
+	return StaticDataType(sz)
 }
 
 func (g *Graph) SyscallExit(statusCodePtr RegType) {

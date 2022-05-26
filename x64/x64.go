@@ -55,18 +55,24 @@ func Compile(arch Arch, bc []bytecode.Instruction, bssAddr uint64) ([]byte, uint
 
 	bssSize := uint64(0)
 
-	type branch struct {
+	type offsetReplace struct {
 		offset, offsetToWrite int
 	}
 
 	labels := make(map[bytecode.LabelType]int)
-	branches := make(map[int]branch)
+	branches := make(map[int]offsetReplace)
+	staticData := make([][]byte, 1024)
 	for j, b := range bc {
 		switch b.Instruction() {
+		default:
+			panic(fmt.Sprintf("unhandled bytecode instruction %v", b))
 		case bytecode.Invalid:
 			fmt.Printf("invalid bytecode found at %d", j)
 		case bytecode.Nop:
 			// Do nothing
+		case bytecode.StaticData:
+			sd := b.(bytecode.StaticData)
+			staticData = append(staticData, sd.Data)
 		case bytecode.Label:
 			l := b.(bytecode.LabelType)
 			labels[l] = o.offset()
@@ -77,7 +83,7 @@ func Compile(arch Arch, bc []bytecode.Instruction, bssAddr uint64) ([]byte, uint
 			// TODO: Find the proper way to do this better
 			o.add(0xe9, 0x00, 0x00, 0x00, 0x00)
 			offset := o.offset()
-			branches[b.ID] = branch{offset, offset - 4} // -4 is the length of 0x00 to fill in later
+			branches[b.ID] = offsetReplace{offset, offset - 4} // -4 is the length of 0x00 to fill in later
 		case bytecode.BranchCond:
 			b := b.(bytecode.Branch)
 			// Currently everything is just assumed to be a 32 bit displacement
@@ -98,7 +104,7 @@ func Compile(arch Arch, bc []bytecode.Instruction, bssAddr uint64) ([]byte, uint
 			}
 			o.add(0x0F, opcode, 0x00, 0x00, 0x00, 0x00)
 			offset := o.offset()
-			branches[b.ID] = branch{offset, offset - 4} // -4 is the length of 0x00 to fill in later
+			branches[b.ID] = offsetReplace{offset, offset - 4} // -4 is the length of 0x00 to fill in later
 		case bytecode.MovImm:
 			i := b.(bytecode.Inst)
 			dst := resolveReg(i.DstReg)
@@ -287,9 +293,6 @@ func Compile(arch Arch, bc []bytecode.Instruction, bssAddr uint64) ([]byte, uint
 		case bytecode.ReserveBytes:
 			r := b.(bytecode.Data)
 			bssSize += uint64(r.Arg1)
-		default:
-			// TODO: What to do in case of missing instruction
-			panic(fmt.Sprintf("unhandled bytecode instruction %v", b))
 		}
 	}
 

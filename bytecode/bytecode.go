@@ -64,6 +64,7 @@ const (
 	SyscallExit    InstructionType = "SyscallExit"
 	SyscallWrite   InstructionType = "SyscallWrite"
 	ReserveBytes   InstructionType = "ReserveBytes"
+	StaticData     InstructionType = "StaticData"
 )
 
 type Instruction interface {
@@ -78,6 +79,16 @@ func (l LabelType) Instruction() InstructionType {
 
 func (l LabelType) String() string {
 	return fmt.Sprintf("Label %d", l)
+}
+
+type StaticDataType uint32
+
+func (l StaticDataType) Instruction() InstructionType {
+	return StaticData
+}
+
+func (l StaticDataType) String() string {
+	return fmt.Sprintf("StaticData %d", l)
 }
 
 type Inst struct {
@@ -146,6 +157,7 @@ func (b Syscall) Instruction() InstructionType { return b.Inst }
 type Data struct {
 	Inst InstructionType
 	Arg1 uint32
+	Data []byte
 }
 
 func (b Data) Instruction() InstructionType { return b.Inst }
