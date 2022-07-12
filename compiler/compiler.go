@@ -40,7 +40,6 @@ func Compile(bc []bytecode.Instruction) ([]byte, error) {
 }
 
 func CompileWithOptions(bc []bytecode.Instruction, os TargetOS, arch TargetArch) ([]byte, error) {
-
 	switch arch {
 	case X64:
 		// valid arch

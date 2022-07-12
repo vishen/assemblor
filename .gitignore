@@ -1,4 +1,4 @@
-assemblored
+assemblored*
 *.o
 .bash_history
 .cache

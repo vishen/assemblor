@@ -7,6 +7,10 @@
 - assemble and link in one command
 - static binary
 
+
+NOTE: This is still a heavy work in progress and isn't intended to be used for anything 
+other than learning. This currently only provides a basic programmatic API.
+
 ## Missing
 
 - static data
@@ -17,6 +21,24 @@
 
 - register allocation
 - debug information
+
+## Example
+
+	# Running without specifying OS will result in the program being compiled for the current OS
+	$ go run examples/hello_world/main.go
+	2022/07/13 09:10:35 Compiling for linux_x64
+	2022/07/13 09:10:35 Writing executable to assemblored
+	$ ./assemblored
+	Hello World
+	$ file ./assemblored
+	assemblored: ELF 64-bit LSB executable, x86-64, version 1 (GNU/Linux), statically linked, no section header
+
+	# You can cross-compile by specifying the os flag
+	$ go run examples/hello_world/main.go -os macho -o assemblored_macho
+	2022/07/13 09:13:07 Compiling for macho_x64
+	2022/07/13 09:13:07 Writing executable to assemblored_macho
+	$ file ./assemblored_macho
+	assemblored_macho: Mach-O 64-bit x86_64 executable, flags:<NOUNDEFS>
 
 
 ## Resources
